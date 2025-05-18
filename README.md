@@ -1,13 +1,16 @@
-# VRCTとVOICEVOXの連携による音声合成デモ
+# VRCT-VOICEVOX-Connector
 
-VOICEVOXエンジンを使用して音声合成を行い、スピーカーから出力するデモアプリケーションです。テキスト入力による対話式モードとWebSocketを使用した外部アプリケーションからのメッセージ受信モードの2つの実行モードをサポートしています。
+## VRCTとVOICEVOXの連携による音声認識による音声合成ツール
+
+VOICEVOX COREを使用して音声合成を行い、スピーカーから出力するデモアプリケーションです。
+テキスト入力による対話式モードとWebSocketを使用した外部アプリケーションからのメッセージ受信モードの2つの実行モードをサポートしています。
 
 ## 概要
 
 このアプリケーションは以下の機能を提供します：
 
 - テキストを入力して音声合成を行う対話式モード
-- WebSocketを通じて外部アプリケーション（例：VRChat）からのメッセージを受信し、自動的に音声合成を行うモード
+- WebSocketを通じて外部アプリケーション（例：VRCT）からのメッセージを受信し、自動的に音声合成を行うモード
 - 複数のオーディオデバイスから出力先を選択可能
 - VOICEVOXの全キャラクターとスタイルに対応
 - 設定の保存と再利用（デバイス、話者、WebSocket URLなど）
@@ -15,7 +18,7 @@ VOICEVOXエンジンを使用して音声合成を行い、スピーカーから
 ## 必要条件
 
 - Python 3.8以上
-- VOICEVOXエンジン（別途インストールが必要）
+- VOICEVOX CORE（別途インストールが必要）
 - 必要なPythonライブラリ（requirements.txtに記載）
 
 ## インストール方法
@@ -23,8 +26,8 @@ VOICEVOXエンジンを使用して音声合成を行い、スピーカーから
 ### 1. リポジトリをクローンまたはダウンロードする
 
 ```bash
-git clone [リポジトリURL]
-cd voicevox_demo
+git clone https://github.com/misyaguziya/VRCT-VOICEVOX-Connector.git
+cd VRCT-VOICEVOX-Connector
 ```
 
 ### 2. 依存関係をインストールする
@@ -36,27 +39,27 @@ pip install -r requirements.txt
 または、同梱のbuild.batを使用してインストールとビルドを行うこともできます：
 
 ```bash
-build.bat
+./build.bat
 ```
 
-### 3. VOICEVOXエンジンをインストールして起動する
+### 3. VOICEVOX COREをインストールして起動する
 
-1. [VOICEVOX公式サイト](https://voicevox.hiroshiba.jp/)からVOICEVOXをダウンロードしてインストール
-2. VOICEVOXアプリケーションを起動
-3. エンジンが起動していることを確認（デフォルトでは http://127.0.0.1:50021 でサービスが提供されます）
+1. [サイト](https://github.com/VOICEVOX/voicevox_core)からVOICEVOX COREをダウンロードして展開
+2. VOICEVOX COREを起動
+3. VOICEVOX COREが起動していることを確認（デフォルトでは http://127.0.0.1:50021 でサービスが提供されます）
 
 ## 使用方法
 
 ### アプリケーションの実行
 
 ```bash
-python voicevox_demo.py
+python main.py
 ```
 
 または、ビルドされた実行ファイルを使用する場合：
 
 ```bash
-dist\voicevox_demo\voicevox_demo.exe
+dist\VRCT-VOICEVOX-Connector\VRCT-VOICEVOX-Connector.exe
 ```
 
 ### 実行モードの選択
@@ -72,7 +75,7 @@ dist\voicevox_demo\voicevox_demo.exe
 2. 使用するVOICEVOXキャラクターとスタイルを選択
 3. 合成したいテキストを入力
 4. 必要に応じて音声をファイルとして保存するかどうかを選択
-5. 終了するには 'q' を入力
+5. 終了するには `q` を入力
 
 ### WebSocketクライアントデモの使用方法
 
@@ -83,7 +86,7 @@ dist\voicevox_demo\voicevox_demo.exe
 3. オーディオ出力デバイスを選択
 4. 使用するVOICEVOXキャラクターとスタイルを選択
 5. WebSocketサーバーからのメッセージを待機（プログラムは自動的にVRCTからのメッセージを受信して音声合成を行います）
-6. 終了するには Ctrl+C を押す
+6. 終了するには `Ctrl+C` を押す
 
 ## 設定の保存と再利用
 
@@ -97,7 +100,7 @@ dist\voicevox_demo\voicevox_demo.exe
 
 ## ファイル構成
 
-- `voicevox_demo.py` - メインアプリケーションファイル
+- `main.py` - メインアプリケーションファイル
 - `voicevox.py` - VOICEVOX APIクライアント
 - `voicevox_speaker.py` - オーディオ出力とデバイス管理
 - `config.py` - 設定の保存と読み込み
@@ -113,11 +116,11 @@ dist\voicevox_demo\voicevox_demo.exe
 build.bat
 ```
 
-ビルドが完了すると、`dist\voicevox_demo` フォルダに実行ファイルと必要なリソースが生成されます。
+ビルドが完了すると、`dist\VRCT-VOICEVOX-Connector` フォルダに実行ファイルと必要なリソースが生成されます。
 
 ## VRChatとの連携
 
-WebSocketクライアントモードは、主にVRCT（VRChat用文字起こしツール）との連携を前提としています。VRCTは、VRChat内の音声を文字に起こし、その文字列をWebSocketを通じて送信するツールです。このアプリケーションはその文字列を受け取り、VOICEVOXを使用して音声に変換します。
+WebSocketクライアントモードは、主にVRCTとの連携を前提としています。VRCTは、VRChat内の音声を文字に起こし、その文字列をWebSocketを通じて送信するツールです。このアプリケーションはその文字列を受け取り、VOICEVOXを使用して音声に変換します。
 
 1. VRCTをインストールして起動する
 2. VRCTの設定でWebSocketサーバーを有効にする（デフォルト: `ws://127.0.0.1:2231`）
@@ -130,13 +133,13 @@ WebSocketクライアントモードは、主にVRCT（VRChat用文字起こし�
 
 ## 注意事項
 
-- VOICEVOXエンジンが起動している必要があります
+- VOICEVOX COREが起動している必要があります
 - WebSocketモードでは、指定したURLでWebSocketサーバーが稼働している必要があります
 - 生成された音声は、選択したオーディオデバイスから出力されます
 
 ## ライセンス
 
-このプロジェクトはオープンソースとして提供されています。VOICEVOXの利用規約に従った使用を行ってください。
+このプロジェクトはMITライセンスでオープンソースとして提供されています。VOICEVOXについては利用規約に従った使用を行ってください。
 
 ## 謝辞
 
