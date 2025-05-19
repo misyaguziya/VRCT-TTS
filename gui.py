@@ -33,14 +33,13 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # ダークモードをデフォルトに設定
         ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
-
-        # データ保存用の変数
+        ctk.set_default_color_theme("blue")        # データ保存用の変数
         self.speakers_data = []
         self.audio_devices = []
         self.current_character = None
         self.current_style = None
         self.current_device = None
+        self.volume = 0.8  # デフォルトの音量 (0.0-1.0)
         self.ws_url = "ws://127.0.0.1:2231"
 
         # WebSocket関連の変数
@@ -135,6 +134,30 @@ class VoicevoxConnectorGUI(ctk.CTk):
             command=self.on_device_change
         )
         self.device_dropdown.pack(fill="x", padx=10, pady=5)
+
+        # 音量調整スライダー
+        volume_label = ctk.CTkLabel(left_frame, text="音量")
+        volume_label.pack(anchor="w", padx=10, pady=5)
+
+        # 音量値表示用のラベル
+        self.volume_value_var = ctk.StringVar(value=f"{int(self.volume * 100)}%")
+        volume_value_label = ctk.CTkLabel(
+            left_frame, 
+            textvariable=self.volume_value_var,
+            width=40
+        )
+        volume_value_label.pack(anchor="e", padx=10)
+
+        # スライダーウィジェット
+        self.volume_slider = ctk.CTkSlider(
+            left_frame,
+            from_=0,
+            to=1.0,
+            number_of_steps=20,
+            command=self.on_volume_change
+        )
+        self.volume_slider.set(self.volume)  # 現在の音量を設定
+        self.volume_slider.pack(fill="x", padx=10, pady=5)
 
         # WebSocket設定
         ws_frame = ctk.CTkFrame(right_frame)
@@ -347,6 +370,63 @@ class VoicevoxConnectorGUI(ctk.CTk):
         device_index = int(choice.split("インデックス: ")[1].rstrip(")"))
         self.current_device = device_index
 
+    def on_volume_change(self, value):
+        """スライダーで音量が変更されたときの処理"""
+        self.volume = value
+        # 音量表示を更新（パーセント表示）
+        self.volume_value_var.set(f"{int(value * 100)}%")
+
+    def _play_audio_with_volume(self, speaker, audio_data):
+        """音量を適用して音声を再生する"""
+        try:
+            import io
+            import wave
+            import numpy as np
+            import struct
+            
+            # WAVデータをバッファに読み込み
+            with io.BytesIO(audio_data) as buffer:
+                with wave.open(buffer, 'rb') as wf:
+                    # WAVファイルのパラメータを取得
+                    n_channels = wf.getnchannels()
+                    sample_width = wf.getsampwidth()
+                    frame_rate = wf.getframerate()
+                    n_frames = wf.getnframes()
+                    
+                    # すべてのフレームを読み込む
+                    raw_data = wf.readframes(n_frames)
+            
+            # 音声データをnumpy配列に変換
+            if sample_width == 2:  # 16bit PCM
+                fmt = f"{n_frames * n_channels}h"
+                data = np.array(struct.unpack(fmt, raw_data))
+                # 音量を適用
+                data = (data * self.volume).astype(np.int16)
+                # データをバイトに戻す
+                modified_raw_data = struct.pack(fmt, *data)
+                
+                # 新しいWAVファイルを作成
+                with io.BytesIO() as out_buffer:
+                    with wave.open(out_buffer, 'wb') as out_wf:
+                        out_wf.setnchannels(n_channels)
+                        out_wf.setsampwidth(sample_width)
+                        out_wf.setframerate(frame_rate)
+                        out_wf.writeframes(modified_raw_data)
+                    
+                    # バッファからバイトデータを取得
+                    modified_audio_data = out_buffer.getvalue()
+                
+                # 修正したデータを再生
+                speaker.play_bytes(modified_audio_data)
+            else:
+                # サンプル幅が異なる場合はそのまま再生
+                speaker.play_bytes(audio_data)
+                
+        except Exception as e:
+            print(f"音声処理エラー: {str(e)}")
+            # エラーが発生した場合は元のデータをそのまま再生
+            speaker.play_bytes(audio_data)
+
     def play_test_audio(self):
         """テスト音声を再生"""
         # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
@@ -380,15 +460,14 @@ class VoicevoxConnectorGUI(ctk.CTk):
             # 音声を合成
             audio_data = self.client.synthesis(query, self.current_style)
 
-            # 音声を再生
+            # 音声を再生（音量適用）
             speaker = VoicevoxSpeaker(output_device_index=self.current_device)
-            speaker.play_bytes(audio_data)
+            self._play_audio_with_volume(speaker, audio_data)
 
             # ステータスの更新
             self.after(0, lambda: self.status_var.set("再生完了"))
 
-        except Exception as e:
-            # エラー表示
+        except Exception as e:            # エラー表示
             self.after(0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
 
     def load_config(self):
@@ -396,6 +475,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         config = Config.load()
         self.current_style = config.get("speaker_id")
         self.current_device = config.get("device_index")
+        self.volume = config.get("volume", 0.8)  # デフォルトは0.8
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
 
     def save_config(self):
@@ -403,6 +483,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         config_data = {
             "speaker_id": self.current_style,
             "device_index": self.current_device,
+            "volume": self.volume,
             "ws_url": self.ws_url_var.get()
         }
         Config.save(config_data)
@@ -522,9 +603,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
             # 音声を合成
             audio_data = self.client.synthesis(query, self.current_style)
 
-            # 音声を再生
+            # 音声を再生（音量適用）
             speaker = VoicevoxSpeaker(output_device_index=self.current_device)
-            speaker.play_bytes(audio_data)
+            self._play_audio_with_volume(speaker, audio_data)
 
         except Exception as e:
             self.after(0, lambda msg=f"音声合成エラー: {str(e)}": self.status_var.set(msg))
