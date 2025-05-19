@@ -2,7 +2,7 @@
 
 ## VRCTとVOICEVOXの連携による音声認識による音声合成ツール
 
-VOICEVOX COREを使用して音声合成を行い、スピーカーから出力するデモアプリケーションです。
+VOICEVOX エンジンを使用して音声合成を行い、スピーカーから出力するデモアプリケーションです。
 テキスト入力による対話式モードとWebSocketを使用した外部アプリケーションからのメッセージ受信モードの2つの実行モードをサポートしています。
 
 ## 概要
@@ -18,7 +18,7 @@ VOICEVOX COREを使用して音声合成を行い、スピーカーから出力�
 ## 必要条件
 
 - Python 3.8以上
-- VOICEVOX CORE（別途インストールが必要）
+- VOICEVOX エンジン（別途インストールが必要）
 - 必要なPythonライブラリ（requirements.txtに記載）
 
 ## インストール方法
@@ -42,11 +42,11 @@ pip install -r requirements.txt
 ./build.bat
 ```
 
-### 3. VOICEVOX COREをインストールして起動する
+### 3. VOICEVOX エンジンをインストールして起動する
 
-1. [サイト](https://github.com/VOICEVOX/voicevox_core)からVOICEVOX COREをダウンロードして展開
-2. VOICEVOX COREを起動
-3. VOICEVOX COREが起動していることを確認（デフォルトでは http://127.0.0.1:50021 でサービスが提供されます）
+1. [サイト](https://github.com/VOICEVOX/voicevox_engine)からVOICEVOX エンジンをダウンロードして展開
+2. VOICEVOX エンジンを起動
+3. VOICEVOX エンジンが起動していることを確認（デフォルトでは http://127.0.0.1:50021 でサービスが提供されます）
 
 ## 使用方法
 
@@ -59,7 +59,7 @@ python main.py
 または、ビルドされた実行ファイルを使用する場合：
 
 ```bash
-dist\VRCT-VOICEVOX-Connector\VRCT-VOICEVOX-Connector.exe
+dist\VTVV-Connector\VTVV-Connector.exe
 ```
 
 ### 実行モードの選択
@@ -133,7 +133,7 @@ WebSocketクライアントモードは、主にVRCTとの連携を前提とし�
 
 ## 注意事項
 
-- VOICEVOX COREが起動している必要があります
+- VOICEVOX エンジンが起動している必要があります
 - WebSocketモードでは、指定したURLでWebSocketサーバーが稼働している必要があります
 - 生成された音声は、選択したオーディオデバイスから出力されます
 
