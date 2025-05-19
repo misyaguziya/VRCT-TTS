@@ -311,15 +311,31 @@ class VoicevoxConnectorGUI(ctk.CTk):
         elif style_values:
             self.style_var.set(style_values[0])
             self.current_style = speaker["styles"][0]["id"]
-
+            
     def on_style_change(self, choice):
         """スタイルが変更されたときの処理"""
-        if not choice:
+        if not choice or not self.current_character:
             return
 
-        # 選択されたスタイルからIDを取得
-        style_id = int(choice.split("ID: ")[1].rstrip(")"))
-        self.current_style = style_id
+        try:
+            # 選択されたスタイルからIDを取得
+            import re
+            id_match = re.search(r'\(ID: (\d+)\)', choice)
+            if id_match:
+                style_id = int(id_match.group(1))
+                self.current_style = style_id
+            else:
+                # 正規表現でIDが見つからない場合、キャラクターのスタイルから名前で検索
+                style_name = choice.split(" (ID:")[0] if " (ID:" in choice else choice
+                for style in self.current_character["styles"]:
+                    if style["name"] == style_name:
+                        self.current_style = style["id"]
+                        break
+        except Exception as e:
+            print(f"スタイル選択エラー: {str(e)}")
+            # エラーが発生した場合でも、選択中のキャラクターの最初のスタイルを設定
+            if self.current_character and self.current_character["styles"]:
+                self.current_style = self.current_character["styles"][0]["id"]
 
     def on_device_change(self, choice):
         """デバイスが変更されたときの処理"""
@@ -333,7 +349,12 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def play_test_audio(self):
         """テスト音声を再生"""
-        if not self.current_style:
+        # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
+        if not self.current_style and self.current_character and self.current_character["styles"]:
+            self.current_style = self.current_character["styles"][0]["id"]
+            style_name = self.current_character["styles"][0]["name"]
+            self.status_var.set(f"スタイルが自動選択されました: {style_name}")
+        elif not self.current_style:
             self.status_var.set("エラー: スタイルが選択されていません")
             return
 
@@ -397,7 +418,12 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def start_websocket_connection(self):
         """WebSocket接続を開始する"""
-        if not self.current_style:
+        # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
+        if not self.current_style and self.current_character and self.current_character["styles"]:
+            self.current_style = self.current_character["styles"][0]["id"]
+            style_name = self.current_character["styles"][0]["name"]
+            self.status_var.set(f"スタイルが自動選択されました: {style_name}")
+        elif not self.current_style:
             self.status_var.set("エラー: スピーカースタイルが選択されていません")
             return
 
@@ -480,6 +506,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
     def _synthesize_and_play(self, text):
         """テキストを音声合成して再生する"""
         try:
+            # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
+            if not self.current_style and self.current_character and self.current_character["styles"]:
+                self.current_style = self.current_character["styles"][0]["id"]
+                style_name = self.current_character["styles"][0]["name"]
+                self.after(0, lambda: self.status_var.set(f"スタイルが自動選択されました: {style_name}"))
+
+            if not self.current_style:
+                self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
+                return
+
             # 音声合成用クエリを作成
             query = self.client.audio_query(text, self.current_style)
 
