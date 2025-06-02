@@ -2,8 +2,8 @@ name: Build and Release VTVV-Connector
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -46,5 +46,6 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: VTVV-Connector-Windows/* # Upload all files from the downloaded artifact
+        tag_name: ${{ github.ref_name }} # Add this line
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
