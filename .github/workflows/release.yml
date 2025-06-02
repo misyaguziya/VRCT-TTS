@@ -1,0 +1,50 @@
+name: Build and Release VTVV-Connector
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: windows-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x' # Specify a version or range
+
+    - name: Run build script
+      shell: cmd
+      run: |
+        call build.bat
+
+    - name: Archive application artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: VTVV-Connector-Windows
+        path: dist/VTVV-Connector/
+
+  release:
+    name: Create Release
+    needs: build # This job depends on the 'build' job
+    runs-on: ubuntu-latest # Can run on ubuntu as it only deals with GitHub API
+
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: VTVV-Connector-Windows
+        path: VTVV-Connector-Windows # Download to this directory
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: VTVV-Connector-Windows/* # Upload all files from the downloaded artifact
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

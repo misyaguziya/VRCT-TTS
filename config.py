@@ -2,6 +2,7 @@ import json
 import os
 from typing import Dict, Any
 
+
 class Config:
     """設定の管理クラス"""
 

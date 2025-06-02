@@ -4,7 +4,7 @@ VOICEVOX Engine APIのPythonラッパー
 """
 
 import requests
-from typing import List, Dict, Union, Optional, BinaryIO
+from typing import List, Dict, Union, Any, Optional, BinaryIO
 from enum import Enum
 
 
@@ -40,7 +40,7 @@ class VOICEVOXClient:
 
     # クエリ作成関連のAPI
 
-    def audio_query(self, text: str, speaker: int, core_version: Optional[str] = None) -> Dict:
+    def audio_query(self, text: str, speaker: int, core_version: Optional[str] = None) -> Dict[str, Any]:
         """
         音声合成用のクエリを作成する
 
@@ -50,9 +50,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            Dict: 音声合成用のクエリ
+            Dict[str, Any]: 音声合成用のクエリ
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "text": text,
             "speaker": speaker
         }
@@ -65,7 +65,7 @@ class VOICEVOXClient:
 
     def audio_query_from_preset(
         self, text: str, preset_id: int, core_version: Optional[str] = None
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         音声合成用のクエリをプリセットを用いて作成する
 
@@ -75,22 +75,23 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            Dict: 音声合成用のクエリ
+            Dict[str, Any]: 音声合成用のクエリ
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "text": text,
             "preset_id": preset_id
         }
         if core_version is not None:
             params["core_version"] = core_version
 
-        response = requests.post(f"{self.base_url}/audio_query_from_preset", params=params)
+        response = requests.post(
+            f"{self.base_url}/audio_query_from_preset", params=params)
         response.raise_for_status()
         return response.json()
 
     def accent_phrases(
         self, text: str, speaker: int, is_kana: bool = False, core_version: Optional[str] = None
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """
         テキストからアクセント句を得る
 
@@ -101,9 +102,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: アクセント句のリスト
+            List[Dict[str, Any]]: アクセント句のリスト
         """
-        params = {
+        params: Dict[str, Union[str, int, bool]] = {
             "text": text,
             "speaker": speaker,
             "is_kana": is_kana
@@ -111,25 +112,26 @@ class VOICEVOXClient:
         if core_version is not None:
             params["core_version"] = core_version
 
-        response = requests.post(f"{self.base_url}/accent_phrases", params=params)
+        response = requests.post(
+            f"{self.base_url}/accent_phrases", params=params)
         response.raise_for_status()
         return response.json()
 
     def mora_data(
-        self, accent_phrases: List[Dict], speaker: int, core_version: Optional[str] = None
-    ) -> List[Dict]:
+        self, accent_phrases: List[Dict[str, Any]], speaker: int, core_version: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         アクセント句から音高・音素長を得る
 
         Args:
-            accent_phrases (List[Dict]): アクセント句のリスト
+            accent_phrases (List[Dict[str, Any]]): アクセント句のリスト
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: 更新されたアクセント句のリスト
+            List[Dict[str, Any]]: 更新されたアクセント句のリスト
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -144,20 +146,20 @@ class VOICEVOXClient:
         return response.json()
 
     def mora_length(
-        self, accent_phrases: List[Dict], speaker: int, core_version: Optional[str] = None
-    ) -> List[Dict]:
+        self, accent_phrases: List[Dict[str, Any]], speaker: int, core_version: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         アクセント句から音素長を得る
 
         Args:
-            accent_phrases (List[Dict]): アクセント句のリスト
+            accent_phrases (List[Dict[str, Any]]): アクセント句のリスト
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: 更新されたアクセント句のリスト
+            List[Dict[str, Any]]: 更新されたアクセント句のリスト
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -172,20 +174,20 @@ class VOICEVOXClient:
         return response.json()
 
     def mora_pitch(
-        self, accent_phrases: List[Dict], speaker: int, core_version: Optional[str] = None
-    ) -> List[Dict]:
+        self, accent_phrases: List[Dict[str, Any]], speaker: int, core_version: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         アクセント句から音高を得る
 
         Args:
-            accent_phrases (List[Dict]): アクセント句のリスト
+            accent_phrases (List[Dict[str, Any]]): アクセント句のリスト
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: 更新されたアクセント句のリスト
+            List[Dict[str, Any]]: 更新されたアクセント句のリスト
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -203,7 +205,7 @@ class VOICEVOXClient:
 
     def synthesis(
         self,
-        audio_query: Dict,
+        audio_query: Dict[str, Any],
         speaker: int,
         enable_interrogative_upspeak: bool = True,
         core_version: Optional[str] = None,
@@ -213,7 +215,7 @@ class VOICEVOXClient:
         音声合成する
 
         Args:
-            audio_query (Dict): 音声合成用のクエリ
+            audio_query (Dict[str, Any]): 音声合成用のクエリ
             speaker (int): スピーカーID
             enable_interrogative_upspeak (bool, optional): 疑問系のテキストで語尾を自動調整するか. Defaults to True.
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
@@ -222,7 +224,7 @@ class VOICEVOXClient:
         Returns:
             Union[bytes, None]: 音声データ(output_fileがNoneの場合)
         """
-        params = {
+        params: Dict[str, Union[str, int, bool]] = {
             "speaker": speaker,
             "enable_interrogative_upspeak": enable_interrogative_upspeak
         }
@@ -243,7 +245,7 @@ class VOICEVOXClient:
 
     def cancellable_synthesis(
         self,
-        audio_query: Dict,
+        audio_query: Dict[str, Any],
         speaker: int,
         core_version: Optional[str] = None,
         output_file: Optional[BinaryIO] = None
@@ -252,7 +254,7 @@ class VOICEVOXClient:
         音声合成する（キャンセル可能）
 
         Args:
-            audio_query (Dict): 音声合成用のクエリ
+            audio_query (Dict[str, Any]): 音声合成用のクエリ
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
             output_file (Optional[BinaryIO], optional): 出力ファイル. Defaults to None.
@@ -260,7 +262,7 @@ class VOICEVOXClient:
         Returns:
             Union[bytes, None]: 音声データ(output_fileがNoneの場合)
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -280,7 +282,7 @@ class VOICEVOXClient:
 
     def multi_synthesis(
         self,
-        audio_queries: List[Dict],
+        audio_queries: List[Dict[str, Any]],
         speaker: int,
         core_version: Optional[str] = None,
         output_file: Optional[BinaryIO] = None
@@ -289,7 +291,7 @@ class VOICEVOXClient:
         複数まとめて音声合成する
 
         Args:
-            audio_queries (List[Dict]): 音声合成用のクエリのリスト
+            audio_queries (List[Dict[str, Any]]): 音声合成用のクエリのリスト
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
             output_file (Optional[BinaryIO], optional): 出力ファイル. Defaults to None.
@@ -297,7 +299,7 @@ class VOICEVOXClient:
         Returns:
             Union[bytes, None]: 音声データ(output_fileがNoneの場合)
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -318,20 +320,20 @@ class VOICEVOXClient:
     # 歌唱合成関連のAPI
 
     def sing_frame_audio_query(
-        self, score: Dict, speaker: int, core_version: Optional[str] = None
-    ) -> Dict:
+        self, score: Dict[str, Any], speaker: int, core_version: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         歌唱音声合成用のクエリを作成する
 
         Args:
-            score (Dict): 楽譜情報
+            score (Dict[str, Any]): 楽譜情報
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            Dict: 歌唱音声合成用のクエリ
+            Dict[str, Any]: 歌唱音声合成用のクエリ
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -346,21 +348,21 @@ class VOICEVOXClient:
         return response.json()
 
     def sing_frame_f0(
-        self, score: Dict, frame_audio_query: Dict, speaker: int, core_version: Optional[str] = None
+        self, score: Dict[str, Any], frame_audio_query: Dict[str, Any], speaker: int, core_version: Optional[str] = None
     ) -> List[float]:
         """
         楽譜・歌唱音声合成用のクエリからフレームごとの基本周波数を得る
 
         Args:
-            score (Dict): 楽譜情報
-            frame_audio_query (Dict): 歌唱音声合成用のクエリ
+            score (Dict[str, Any]): 楽譜情報
+            frame_audio_query (Dict[str, Any]): 歌唱音声合成用のクエリ
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
             List[float]: フレームごとの基本周波数
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -380,21 +382,21 @@ class VOICEVOXClient:
         return response.json()
 
     def sing_frame_volume(
-        self, score: Dict, frame_audio_query: Dict, speaker: int, core_version: Optional[str] = None
+        self, score: Dict[str, Any], frame_audio_query: Dict[str, Any], speaker: int, core_version: Optional[str] = None
     ) -> List[float]:
         """
         楽譜・歌唱音声合成用のクエリからフレームごとの音量を得る
 
         Args:
-            score (Dict): 楽譜情報
-            frame_audio_query (Dict): 歌唱音声合成用のクエリ
+            score (Dict[str, Any]): 楽譜情報
+            frame_audio_query (Dict[str, Any]): 歌唱音声合成用のクエリ
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
             List[float]: フレームごとの音量
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -415,7 +417,7 @@ class VOICEVOXClient:
 
     def frame_synthesis(
         self,
-        frame_audio_query: Dict,
+        frame_audio_query: Dict[str, Any],
         speaker: int,
         core_version: Optional[str] = None,
         output_file: Optional[BinaryIO] = None
@@ -424,7 +426,7 @@ class VOICEVOXClient:
         歌唱音声合成を行う
 
         Args:
-            frame_audio_query (Dict): 歌唱音声合成用のクエリ
+            frame_audio_query (Dict[str, Any]): 歌唱音声合成用のクエリ
             speaker (int): スピーカーID
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
             output_file (Optional[BinaryIO], optional): 出力ファイル. Defaults to None.
@@ -432,7 +434,7 @@ class VOICEVOXClient:
         Returns:
             Union[bytes, None]: 音声データ(output_fileがNoneの場合)
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
@@ -454,7 +456,7 @@ class VOICEVOXClient:
 
     def morphable_targets(
         self, base_style_ids: List[int], core_version: Optional[str] = None
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """
         指定したスタイルに対してモーフィングが可能か判定する
 
@@ -463,9 +465,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: モーフィング可能かどうかの情報
+            List[Dict[str, Any]]: モーフィング可能かどうかの情報
         """
-        params = {}
+        params: Dict[str, str] = {}
         if core_version is not None:
             params["core_version"] = core_version
 
@@ -479,7 +481,7 @@ class VOICEVOXClient:
 
     def synthesis_morphing(
         self,
-        audio_query: Dict,
+        audio_query: Dict[str, Any],
         base_speaker: int,
         target_speaker: int,
         morph_rate: float,
@@ -490,7 +492,7 @@ class VOICEVOXClient:
         2種類のスタイルでモーフィングした音声を合成する
 
         Args:
-            audio_query (Dict): 音声合成用のクエリ
+            audio_query (Dict[str, Any]): 音声合成用のクエリ
             base_speaker (int): ベーススピーカーID
             target_speaker (int): ターゲットスピーカーID
             morph_rate (float): モーフィングの割合 (0.0〜1.0)
@@ -503,7 +505,7 @@ class VOICEVOXClient:
         if not 0.0 <= morph_rate <= 1.0:
             raise ValueError("morph_rate must be between 0.0 and 1.0")
 
-        params = {
+        params: Dict[str, Union[str, int, float]] = {
             "base_speaker": base_speaker,
             "target_speaker": target_speaker,
             "morph_rate": morph_rate
@@ -560,7 +562,8 @@ class VOICEVOXClient:
         params = {
             "text": text
         }
-        response = requests.post(f"{self.base_url}/validate_kana", params=params)
+        response = requests.post(
+            f"{self.base_url}/validate_kana", params=params)
         response.raise_for_status()
         return response.json()
 
@@ -575,14 +578,15 @@ class VOICEVOXClient:
             skip_reinit (bool, optional): 既に初期化済みのスタイルの再初期化をスキップするか. Defaults to False.
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
         """
-        params = {
+        params: Dict[str, Union[str, int, bool]] = {
             "speaker": speaker,
             "skip_reinit": skip_reinit
         }
         if core_version is not None:
             params["core_version"] = core_version
 
-        response = requests.post(f"{self.base_url}/initialize_speaker", params=params)
+        response = requests.post(
+            f"{self.base_url}/initialize_speaker", params=params)
         response.raise_for_status()
 
     def is_initialized_speaker(self, speaker: int, core_version: Optional[str] = None) -> bool:
@@ -596,13 +600,14 @@ class VOICEVOXClient:
         Returns:
             bool: 初期化済みかどうか
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "speaker": speaker
         }
         if core_version is not None:
             params["core_version"] = core_version
 
-        response = requests.get(f"{self.base_url}/is_initialized_speaker", params=params)
+        response = requests.get(
+            f"{self.base_url}/is_initialized_speaker", params=params)
         response.raise_for_status()
         return response.json()
 
@@ -614,35 +619,36 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            Dict: 対応デバイスの情報
+            Dict[str, Any]: 対応デバイスの情報
         """
-        params = {}
+        params: Dict[str, str] = {}
         if core_version is not None:
             params["core_version"] = core_version
 
-        response = requests.get(f"{self.base_url}/supported_devices", params=params)
+        response = requests.get(
+            f"{self.base_url}/supported_devices", params=params)
         response.raise_for_status()
         return response.json()
 
     # プリセット関連のAPI
 
-    def get_presets(self) -> List[Dict]:
+    def get_presets(self) -> List[Dict[str, Any]]:
         """
         エンジンが保持しているプリセットの設定を返す
 
         Returns:
-            List[Dict]: プリセットのリスト
+            List[Dict[str, Any]]: プリセットのリスト
         """
         response = requests.get(f"{self.base_url}/presets")
         response.raise_for_status()
         return response.json()
 
-    def add_preset(self, preset: Dict) -> int:
+    def add_preset(self, preset: Dict[str, Any]) -> int:
         """
         新しいプリセットを追加する
 
         Args:
-            preset (Dict): 新しいプリセット
+            preset (Dict[str, Any]): 新しいプリセット
 
         Returns:
             int: 追加したプリセットのプリセットID
@@ -651,12 +657,12 @@ class VOICEVOXClient:
         response.raise_for_status()
         return response.json()
 
-    def update_preset(self, preset: Dict) -> int:
+    def update_preset(self, preset: Dict[str, Any]) -> int:
         """
         既存のプリセットを更新する
 
         Args:
-            preset (Dict): 更新するプリセット
+            preset (Dict[str, Any]): 更新するプリセット
 
         Returns:
             int: 更新したプリセットのプリセットID
@@ -675,12 +681,13 @@ class VOICEVOXClient:
         params = {
             "id": preset_id
         }
-        response = requests.post(f"{self.base_url}/delete_preset", params=params)
+        response = requests.post(
+            f"{self.base_url}/delete_preset", params=params)
         response.raise_for_status()
 
     # スピーカー情報関連のAPI
 
-    def speakers(self, core_version: Optional[str] = None) -> List[Dict]:
+    def speakers(self, core_version: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         喋れるキャラクターの情報の一覧を返す
 
@@ -688,9 +695,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: キャラクター情報のリスト
+            List[Dict[str, Any]]: キャラクター情報のリスト
         """
-        params = {}
+        params: Dict[str, str] = {}
         if core_version is not None:
             params["core_version"] = core_version
 
@@ -700,7 +707,7 @@ class VOICEVOXClient:
 
     def speaker_info(
         self, speaker_uuid: str, resource_format: str = "base64", core_version: Optional[str] = None
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         UUIDで指定された喋れるキャラクターの情報を返す
 
@@ -710,9 +717,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            Dict: キャラクターの追加情報
+            Dict[str, Any]: キャラクターの追加情報
         """
-        params = {
+        params: Dict[str, str] = {
             "speaker_uuid": speaker_uuid,
             "resource_format": resource_format
         }
@@ -723,7 +730,7 @@ class VOICEVOXClient:
         response.raise_for_status()
         return response.json()
 
-    def singers(self, core_version: Optional[str] = None) -> List[Dict]:
+    def singers(self, core_version: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         歌えるキャラクターの情報の一覧を返す
 
@@ -731,9 +738,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            List[Dict]: キャラクター情報のリスト
+            List[Dict[str, Any]]: キャラクター情報のリスト
         """
-        params = {}
+        params: Dict[str, str] = {}
         if core_version is not None:
             params["core_version"] = core_version
 
@@ -743,7 +750,7 @@ class VOICEVOXClient:
 
     def singer_info(
         self, speaker_uuid: str, resource_format: str = "base64", core_version: Optional[str] = None
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         UUIDで指定された歌えるキャラクターの情報を返す
 
@@ -753,9 +760,9 @@ class VOICEVOXClient:
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
-            Dict: キャラクターの追加情報
+            Dict[str, Any]: キャラクターの追加情報
         """
-        params = {
+        params: Dict[str, str] = {
             "speaker_uuid": speaker_uuid,
             "resource_format": resource_format
         }
@@ -768,12 +775,12 @@ class VOICEVOXClient:
 
     # ユーザー辞書関連のAPI
 
-    def get_user_dict_words(self) -> Dict:
+    def get_user_dict_words(self) -> Dict[str, Any]:
         """
         ユーザー辞書に登録されている単語の一覧を返す
 
         Returns:
-            Dict: 単語のUUIDとその詳細
+            Dict[str, Any]: 単語のUUIDとその詳細
         """
         response = requests.get(f"{self.base_url}/user_dict")
         response.raise_for_status()
@@ -800,7 +807,7 @@ class VOICEVOXClient:
         Returns:
             str: 追加された言葉のUUID
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "surface": surface,
             "pronunciation": pronunciation,
             "accent_type": accent_type
@@ -812,7 +819,8 @@ class VOICEVOXClient:
                 raise ValueError("priority must be between 0 and 10")
             params["priority"] = priority
 
-        response = requests.post(f"{self.base_url}/user_dict_word", params=params)
+        response = requests.post(
+            f"{self.base_url}/user_dict_word", params=params)
         response.raise_for_status()
         return response.json()
 
@@ -836,7 +844,7 @@ class VOICEVOXClient:
             word_type (Optional[WordTypes], optional): 品詞. Defaults to None.
             priority (Optional[int], optional): 単語の優先度（0から10までの整数）. Defaults to None.
         """
-        params = {
+        params: Dict[str, Union[str, int]] = {
             "surface": surface,
             "pronunciation": pronunciation,
             "accent_type": accent_type
@@ -848,7 +856,8 @@ class VOICEVOXClient:
                 raise ValueError("priority must be between 0 and 10")
             params["priority"] = priority
 
-        response = requests.put(f"{self.base_url}/user_dict_word/{word_uuid}", params=params)
+        response = requests.put(
+            f"{self.base_url}/user_dict_word/{word_uuid}", params=params)
         response.raise_for_status()
 
     def delete_user_dict_word(self, word_uuid: str) -> None:
@@ -858,18 +867,19 @@ class VOICEVOXClient:
         Args:
             word_uuid (str): 削除する言葉のUUID
         """
-        response = requests.delete(f"{self.base_url}/user_dict_word/{word_uuid}")
+        response = requests.delete(
+            f"{self.base_url}/user_dict_word/{word_uuid}")
         response.raise_for_status()
 
-    def import_user_dict_words(self, import_dict_data: Dict, override: bool = False) -> None:
+    def import_user_dict_words(self, import_dict_data: Dict[str, Any], override: bool = False) -> None:
         """
         他のユーザー辞書をインポートする
 
         Args:
-            import_dict_data (Dict): インポートするユーザー辞書のデータ
+            import_dict_data (Dict[str, Any]): インポートするユーザー辞書のデータ
             override (bool, optional): 重複したエントリがあった場合、上書きするかどうか. Defaults to False.
         """
-        params = {
+        params: Dict[str, bool] = {
             "override": override
         }
         response = requests.post(
@@ -903,12 +913,12 @@ class VOICEVOXClient:
         response.raise_for_status()
         return response.json()
 
-    def engine_manifest(self) -> Dict:
+    def engine_manifest(self) -> Dict[str, Any]:
         """
         エンジンマニフェストを取得する
 
         Returns:
-            Dict: エンジンマニフェスト
+            Dict[str, Any]: エンジンマニフェスト
         """
         response = requests.get(f"{self.base_url}/engine_manifest")
         response.raise_for_status()
@@ -924,7 +934,7 @@ class VOICEVOXClient:
             cors_policy_mode (CorsPolicyMode): CORS許可モード
             allow_origin (Optional[str], optional): 許可するオリジン. Defaults to None.
         """
-        data = {
+        data: Dict[str, str] = {
             "cors_policy_mode": cors_policy_mode.value
         }
         if allow_origin is not None:
