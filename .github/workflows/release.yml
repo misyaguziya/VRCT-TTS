@@ -24,11 +24,16 @@ jobs:
       run: |
         call build.bat
 
+    - name: Create ZIP archive
+      shell: powershell
+      run: |
+        Compress-Archive -Path dist/VTVV-Connector/_internal, dist/VTVV-Connector/VTVV-Connector.exe -DestinationPath dist/VTVV-Connector.zip
+
     - name: Archive application artifact
       uses: actions/upload-artifact@v4
       with:
         name: VTVV-Connector-Windows
-        path: dist/VTVV-Connector/
+        path: dist/VTVV-Connector.zip
 
   release:
     name: Create Release
@@ -46,7 +51,7 @@ jobs:
     - name: Create Release and Upload Asset
       uses: softprops/action-gh-release@v1
       with:
-        files: VTVV-Connector-Windows/* # Upload all files from the downloaded artifact
+        files: VTVV-Connector-Windows/VTVV-Connector.zip # Upload all files from the downloaded artifact
         tag_name: ${{ github.ref_name }} # Add this line
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
