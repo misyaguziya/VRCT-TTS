@@ -2,8 +2,8 @@ name: Build and Release VTVV-Connector
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   build:
