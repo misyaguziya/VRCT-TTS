@@ -4,7 +4,7 @@ VOICEVOX Engine APIのPythonラッパー
 """
 
 import requests
-from typing import List, Dict, Union, Optional, BinaryIO
+from typing import List, Dict, Union, Any, Optional, BinaryIO
 from enum import Enum
 
 
