@@ -7,7 +7,10 @@ CustomTkinterを使用したVOICEVOXの設定GUI
 """
 
 import os
+import sys
 import threading
+import ctypes
+from pathlib import Path
 import customtkinter as ctk
 from typing import Dict, List, Tuple, Optional, Any
 import pyaudio
@@ -26,6 +29,19 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
+
+        # アプリケーションのパスを取得
+        if getattr(sys, 'frozen', False):
+            self.app_path = os.path.dirname(sys.executable)
+        else:
+            self.app_path = os.path.dirname(os.path.abspath(__file__))
+
+        # フォントのパスを設定
+        fonts_path: str = os.path.join(self.app_path, "fonts", "NotoSansJP-VariableFont_wght.ttf")
+        ctypes.windll.gdi32.AddFontResourceW(str(fonts_path))
+        self.fonts_name = "Noto Sans JP"
+        self.font_normal_14: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=14, weight="normal")
+        self.font_normal_12: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=12, weight="normal")
 
         # アプリの設定
         self.title("VRCT VOICEVOX Connector")
@@ -72,7 +88,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         title_label: ctk.CTkLabel = ctk.CTkLabel(
             self.main_frame,
             text="VRCT VOICEVOX Connector",
-            font=ctk.CTkFont(size=20, weight="bold")
+            font=ctk.CTkFont(family=self.fonts_name, size=20, weight="bold")
         )
         title_label.pack(pady=10)
 
@@ -87,12 +103,17 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # 左側: キャラクター選択
         right_frame: ctk.CTkFrame = ctk.CTkFrame(content_frame)
-        right_frame.pack(side="right", fill="both",
-                         expand=True, padx=10, pady=10)
+        right_frame.pack(
+            side="right",
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=10
+        )
         char_label: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
             text="キャラクター選択",
-            font=ctk.CTkFont(size=14, weight="normal")
+            font=self.font_normal_14
         )
         char_label.pack(anchor="w", padx=10, pady=5)
 
@@ -102,6 +123,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
             left_frame,
             variable=self.character_var,
             values=["キャラクターを読み込み中..."],
+            font=self.font_normal_14,
+            dropdown_font=self.font_normal_14,
             width=300,
             state="readonly",
             command=self.on_character_change
@@ -109,7 +132,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.character_dropdown.pack(fill="x", padx=10, pady=5)
 
         style_label_left: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame, text="声のスタイル")
+            left_frame,
+            text="声のスタイル",
+            font=self.font_normal_14
+        )
         style_label_left.pack(anchor="w", padx=10, pady=5)
 
         self.style_var: ctk.StringVar = ctk.StringVar()
@@ -117,6 +143,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
             left_frame,
             variable=self.style_var,
             values=["スタイルを読み込み中..."],
+            font=self.font_normal_14,
+            dropdown_font=self.font_normal_14,
             width=300,
             state="readonly",
             command=self.on_style_change
@@ -125,7 +153,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # オーディオ出力デバイス選択
         device_label: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame, text="出力デバイス")
+            left_frame,
+            text="出力デバイス",
+            font=self.font_normal_14
+        )
         device_label.pack(anchor="w", padx=10, pady=5)
 
         self.device_var: ctk.StringVar = ctk.StringVar()
@@ -133,6 +164,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
             left_frame,
             variable=self.device_var,
             values=["デバイスを読み込み中..."],
+            font=self.font_normal_14,
+            dropdown_font=self.font_normal_14,
             width=300,
             state="readonly",
             command=self.on_device_change
@@ -140,7 +173,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.device_dropdown.pack(fill="x", padx=10, pady=5)
 
         # 音量調整スライダー
-        volume_label: ctk.CTkLabel = ctk.CTkLabel(left_frame, text="音量")
+        volume_label: ctk.CTkLabel = ctk.CTkLabel(
+            left_frame,
+            text="音量",
+            font=self.font_normal_14
+        )
         volume_label.pack(anchor="w", padx=10, pady=5)
 
         # 音量値表示用のラベル
@@ -149,6 +186,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         volume_value_label: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
             textvariable=self.volume_value_var,
+            font=self.font_normal_14,
             width=40
         )
         volume_value_label.pack(anchor="e", padx=10)
@@ -169,13 +207,17 @@ class VoicevoxConnectorGUI(ctk.CTk):
         ws_frame.pack(fill="x", padx=10, pady=10)
 
         ws_label: ctk.CTkLabel = ctk.CTkLabel(
-            ws_frame, text="WebSocketサーバーURL:")
+            ws_frame,
+            text="WebSocketサーバーURL:",
+            font=self.font_normal_14
+        )
         ws_label.pack(anchor="w", padx=10, pady=5)
 
         self.ws_url_var: ctk.StringVar = ctk.StringVar(value=self.ws_url)
         self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
             ws_frame,
             width=300,
+            font=self.font_normal_14,
             textvariable=self.ws_url_var
         )
         self.ws_entry.pack(fill="x", padx=10, pady=5)
@@ -186,6 +228,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_button: ctk.CTkButton = ctk.CTkButton(
             ws_frame,
             textvariable=self.ws_button_var,
+            font=self.font_normal_14,
             command=self.toggle_websocket_connection,
             fg_color="#1E5631",  # 接続時は緑色
             hover_color="#2E8B57"
@@ -198,6 +241,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_status_label: ctk.CTkLabel = ctk.CTkLabel(
             ws_frame,
             textvariable=self.ws_status_var,
+            font=self.font_normal_14,
             text_color="gray"
         )
         self.ws_status_label.pack(pady=5)
@@ -206,13 +250,18 @@ class VoicevoxConnectorGUI(ctk.CTk):
         test_frame: ctk.CTkFrame = ctk.CTkFrame(right_frame)
         test_frame.pack(fill="x", padx=10, pady=10)
 
-        test_label: ctk.CTkLabel = ctk.CTkLabel(test_frame, text="テスト再生:")
+        test_label: ctk.CTkLabel = ctk.CTkLabel(
+            test_frame,
+            text="テスト再生:",
+            font=self.font_normal_14
+        )
         test_label.pack(anchor="w", padx=10, pady=5)
 
         self.test_text_var: ctk.StringVar = ctk.StringVar(
             value="こんにちは、VOICEVOXです。")
         self.test_text_entry: ctk.CTkEntry = ctk.CTkEntry(
             test_frame,
+            font=self.font_normal_14,
             width=300,
             textvariable=self.test_text_var
         )
@@ -221,7 +270,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.play_button: ctk.CTkButton = ctk.CTkButton(
             test_frame,
             text="テスト再生",
-            command=self.play_test_audio
+            command=self.play_test_audio,
+            font=self.font_normal_14
         )
         self.play_button.pack(pady=10)
 
@@ -230,6 +280,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.status_bar: ctk.CTkLabel = ctk.CTkLabel(
             self.main_frame,
             textvariable=self.status_var,
+            font=self.font_normal_12,
             height=25,
             anchor="w"
         )
@@ -239,7 +290,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.save_button: ctk.CTkButton = ctk.CTkButton(
             self.main_frame,
             text="設定を保存",
-            command=self.save_config
+            command=self.save_config,
+            font=self.font_normal_14
         )
         self.save_button.pack(pady=10)
 
