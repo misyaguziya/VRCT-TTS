@@ -34,7 +34,8 @@ jobs:
     name: Create Release
     needs: build # This job depends on the 'build' job
     runs-on: ubuntu-latest # Can run on ubuntu as it only deals with GitHub API
-
+    permissions:
+      contents: write
     steps:
     - name: Download artifact
       uses: actions/download-artifact@v4
