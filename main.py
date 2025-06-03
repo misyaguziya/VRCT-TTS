@@ -10,19 +10,15 @@ import os
 import sys
 import threading
 import ctypes
-from pathlib import Path
 import customtkinter as ctk
-from typing import Dict, List, Tuple, Optional, Any
-import pyaudio
+from typing import Dict, List, Optional, Any
 import websocket
 import json
-import time
 import html
 
 from voicevox import VOICEVOXClient
 from voicevox_speaker import VoicevoxSpeaker
 from config import Config
-
 
 class VoicevoxConnectorGUI(ctk.CTk):
     """VOICEVOX Connector GUIアプリケーション"""
@@ -45,7 +41,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # アプリの設定
         self.title("VRCT VOICEVOX Connector")
-        self.geometry("750x520")
+        self.geometry("770x650")
 
         # ダークモードをデフォルトに設定
         ctk.set_appearance_mode("dark")
@@ -308,7 +304,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         test_label: ctk.CTkLabel = ctk.CTkLabel(
             test_frame,
-            text="テスト再生:",
+            text="テスト再生",
             font=self.font_normal_14
         )
         test_label.pack(anchor="w", padx=10, pady=5)
@@ -326,12 +322,12 @@ class VoicevoxConnectorGUI(ctk.CTk):
             test_frame,
             text="テスト再生",
             command=self.play_test_audio,
-            font=self.font_normal_14
-        )
+            font=self.font_normal_14        )
         self.play_button.pack(pady=10)
 
+        # 再生停止とクリアボタン（テスト再生フレームの外、右フレーム直下に配置）
         self.stop_clear_button: ctk.CTkButton = ctk.CTkButton(
-            test_frame, # Assuming test_frame is the parent
+            right_frame,  # right_frameに配置（test_frameの外）
             text="再生停止とクリア",
             command=self.on_stop_and_clear_audio, # To be implemented
             font=self.font_normal_14,
