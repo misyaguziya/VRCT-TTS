@@ -79,6 +79,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_thread: Optional[threading.Thread] = None
         self.ws_connected: bool = False
 
+        # Playback lock
+        self.playback_lock = threading.Lock()
+
         # 設定を読み込む
         self.load_config()
 
@@ -610,6 +613,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def _play_audio_async(self, text: str) -> None:
         """非同期で音声合成と再生を行う"""
+        self.playback_lock.acquire()
         try:
             # 音声合成用クエリを作成
             # Ensure current_style is not None before proceeding
@@ -638,6 +642,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         except Exception as e:            # エラー表示
             self.after(
                 0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
+        finally:
+            self.playback_lock.release()
 
     def load_config(self) -> None:
         """設定ファイルから設定を読み込む"""
@@ -767,6 +773,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def _synthesize_and_play(self, text: str) -> None:
         """テキストを音声合成して再生する"""
+        self.playback_lock.acquire()
         try:
             # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
             if not self.current_style and self.current_character and self.current_character["styles"]:
@@ -802,6 +809,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         except Exception as e:
             self.after(
                 0, lambda msg=f"音声合成エラー: {str(e)}": self.status_var.set(msg))
+        finally:
+            self.playback_lock.release()
 
     def on_closing(self) -> None:
         """アプリケーション終了時の処理"""
