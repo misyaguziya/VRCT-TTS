@@ -57,10 +57,49 @@ class VoicevoxSpeaker:
             for i in range(p.get_device_count()):
                 device_info = p.get_device_info_by_index(i)
                 # 出力チャンネル数が0より大きい場合、出力デバイスとして使用可能
-                if device_info['maxOutputChannels'] > 0:
+                if device_info['maxOutputChannels'] > 0:                    # デバイス名の文字化け対策
+                    device_name = device_info['name']
+                    # original_name = device_name  # デバッグ用に元の名前を保存
+
+                    if isinstance(device_name, str):
+                        # 文字化けしたデバイス名を修正
+                        try:
+                            # まず、制御文字や不正な文字がないかチェック
+                            if all(ord(c) >= 32 and ord(c) <= 126 or ord(c) >= 160 for c in device_name):
+                                # ASCII範囲内または拡張ASCII範囲の文字のみの場合
+                                fixed_name = device_name
+                            else:
+                                # Windows環境での文字化け対策
+                                # CP932/Shift_JISからUTF-8への変換を試行
+                                try:
+                                    # bytes型に変換してからCP932でデコード
+                                    device_bytes = device_name.encode('latin1')
+                                    fixed_name = device_bytes.decode('cp932', errors='replace')
+                                    # if fixed_name != original_name:
+                                    #     logging.info(f"Device name fixed from CP932: '{original_name}' -> '{fixed_name}'")
+                                except (UnicodeDecodeError, UnicodeEncodeError):
+                                    try:
+                                        # UTF-8での変換を試行
+                                        device_bytes = device_name.encode('latin1')
+                                        fixed_name = device_bytes.decode('utf-8', errors='replace')
+                                        # if fixed_name != original_name:
+                                        #     logging.info(f"Device name fixed from UTF-8: '{original_name}' -> '{fixed_name}'")
+                                    except (UnicodeDecodeError, UnicodeEncodeError):
+                                        # 最後の手段として、不正な文字を置換
+                                        fixed_name = ''.join(c if ord(c) >= 32 and ord(c) <= 126 or ord(c) >= 160 else '?' for c in device_name)
+                                        if not fixed_name.strip():
+                                            fixed_name = f"Audio Device {i}"
+                                        # logging.warning(f"Device name contains invalid characters: '{original_name}' -> '{fixed_name}'")
+                        except Exception as e:
+                            # すべて失敗した場合は安全な文字列に置換
+                            fixed_name = f"Audio Device {i}"
+                            # logging.error(f"Failed to fix device name '{original_name}': {e}")
+                    else:
+                        fixed_name = str(device_name)
+
                     devices.append({
                         'index': i,
-                        'name': device_info['name'],
+                        'name': fixed_name,
                         'channels': device_info['maxOutputChannels'],
                         'sample_rate': int(device_info['defaultSampleRate'])
                     })
@@ -94,7 +133,7 @@ class VoicevoxSpeaker:
                 with self._stream_lock:
                     if self.stop_requested:
                         return
-                    
+
                     self.current_stream_1 = self.p.open(
                         format=self.p.get_format_from_width(width),
                         channels=channels,
@@ -174,7 +213,7 @@ class VoicevoxSpeaker:
             with self._stream_lock:
                 if self.stop_requested:
                     return
-                
+
                 self.current_stream_1 = self.p.open(
                     format=self.p.get_format_from_width(width),
                     channels=channels,

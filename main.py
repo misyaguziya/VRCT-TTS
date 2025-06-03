@@ -20,6 +20,7 @@ from voicevox import VOICEVOXClient
 from voicevox_speaker import VoicevoxSpeaker
 from config import Config
 
+
 class VoicevoxConnectorGUI(ctk.CTk):
     """VOICEVOX Connector GUIアプリケーション"""
 
