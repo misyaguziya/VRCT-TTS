@@ -81,6 +81,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # Playback lock
         self.playback_lock = threading.Lock()
+        self.clear_audio_requested: bool = False
+        self.active_speaker_instance: Optional[VoicevoxSpeaker] = None
 
         # 設定を読み込む
         self.load_config()
@@ -328,6 +330,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         self.play_button.pack(pady=10)
 
+        self.stop_clear_button: ctk.CTkButton = ctk.CTkButton(
+            test_frame, # Assuming test_frame is the parent
+            text="再生停止とクリア",
+            command=self.on_stop_and_clear_audio, # To be implemented
+            font=self.font_normal_14,
+            fg_color="#B22222", # Firebrick red
+            hover_color="#8B0000"  # Darker red
+        )
+        self.stop_clear_button.pack(pady=10)
+
         # ステータスバー
         # self.status_var: ctk.StringVar = ctk.StringVar(value="準備完了") # Already initialized
         self.status_bar: ctk.CTkLabel = ctk.CTkLabel(
@@ -535,8 +547,18 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # 音量表示を更新（パーセント表示）
         self.volume_value_var.set(f"{int(value * 100)}%")
 
-    def _play_audio_with_volume(self, speaker: VoicevoxSpeaker, audio_data: bytes) -> None:
+    def _play_audio_with_volume(self, audio_data: bytes, speaker_instance: VoicevoxSpeaker) -> None:
         """音量を適用して音声を再生する"""
+        if self.clear_audio_requested:
+            # This function might be entered just as clear is requested.
+            # The active speaker's request_stop would be called by the button handler.
+            return
+
+        # It's assumed speaker_instance is valid if we reach here,
+        # as it's created and passed by the calling methods.
+        # However, a check might still be good for robustness if desired,
+        # but per current plan, the calling method handles active_speaker_instance lifecycle.
+
         try:
             import io
             import wave
@@ -576,15 +598,17 @@ class VoicevoxConnectorGUI(ctk.CTk):
                     modified_audio_data = out_buffer.getvalue()
 
                 # 修正したデータを再生
-                speaker.play_bytes(modified_audio_data)
+                speaker_instance.play_bytes(modified_audio_data)
             else:
                 # サンプル幅が異なる場合はそのまま再生
-                speaker.play_bytes(audio_data)
+                speaker_instance.play_bytes(audio_data)
 
         except Exception as e:
             print(f"音声処理エラー: {str(e)}")
             # エラーが発生した場合は元のデータをそのまま再生
-            speaker.play_bytes(audio_data)
+            # Check if speaker_instance is not None before using it in except block
+            if speaker_instance:
+                speaker_instance.play_bytes(audio_data)
 
     def play_test_audio(self) -> None:
         """テスト音声を再生"""
@@ -615,11 +639,19 @@ class VoicevoxConnectorGUI(ctk.CTk):
         """非同期で音声合成と再生を行う"""
         self.playback_lock.acquire()
         try:
+            if self.clear_audio_requested:
+                self.clear_audio_requested = False # Reset flag
+                self.status_var.set("オーディオクリアリクエスト受信済み。再生をキャンセルしました。")
+                # self.playback_lock.release() # This will be handled by finally
+                return
+
+            self.active_speaker_instance = None # Reset before creation
+
             # 音声合成用クエリを作成
             # Ensure current_style is not None before proceeding
             if self.current_style is None:
                 self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
-                return
+                return # playback_lock will be released by finally
             query: Dict[str, Any] = self.client.audio_query(
                 text, self.current_style)
 
@@ -629,21 +661,25 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
             if audio_data:
                 # 音声を再生（音量適用）
-                speaker: VoicevoxSpeaker = VoicevoxSpeaker(
+                self.active_speaker_instance = VoicevoxSpeaker(
                     output_device_index=self.current_device,
                     output_device_index_2=self.current_device_2,
                     speaker_2_enabled=self.speaker_2_enabled)
-                self._play_audio_with_volume(speaker, audio_data)
+                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
                 # ステータスの更新
-                self.after(0, lambda: self.status_var.set("再生完了"))
+                if not self.clear_audio_requested: # Avoid overwriting clear message
+                    self.after(0, lambda: self.status_var.set("再生完了"))
             else:
-                self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
+                if not self.clear_audio_requested: # Avoid overwriting clear message
+                    self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
 
         except Exception as e:            # エラー表示
-            self.after(
-                0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
+            if not self.clear_audio_requested: # Avoid overwriting clear message
+                self.after(
+                    0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
         finally:
             self.playback_lock.release()
+            self.active_speaker_instance = None
 
     def load_config(self) -> None:
         """設定ファイルから設定を読み込む"""
@@ -775,17 +811,27 @@ class VoicevoxConnectorGUI(ctk.CTk):
         """テキストを音声合成して再生する"""
         self.playback_lock.acquire()
         try:
+            if self.clear_audio_requested:
+                self.clear_audio_requested = False # Reset flag
+                self.status_var.set("オーディオクリアリクエスト受信済み。再生をキャンセルしました。")
+                # self.playback_lock.release() # This will be handled by finally
+                return
+
+            self.active_speaker_instance = None # Reset before creation
+
             # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
             if not self.current_style and self.current_character and self.current_character["styles"]:
                 self.current_style = self.current_character["styles"][0]["id"]
                 style_name: str = self.current_character["styles"][0]["name"]
-                self.after(0, lambda: self.status_var.set(
-                    f"スタイルが自動選択されました: {style_name}"))
+                if not self.clear_audio_requested:
+                    self.after(0, lambda: self.status_var.set(
+                        f"スタイルが自動選択されました: {style_name}"))
 
             if self.current_style is None: # Explicit check for None
-                self.after(0, lambda: self.status_var.set(
-                    "エラー: スタイルが選択されていません"))
-                return
+                if not self.clear_audio_requested:
+                    self.after(0, lambda: self.status_var.set(
+                        "エラー: スタイルが選択されていません"))
+                return # playback_lock will be released by finally
 
             # 音声合成用クエリを作成
             query: Dict[str, Any] = self.client.audio_query(
@@ -797,20 +843,46 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
             if audio_data:
                 # 音声を再生（音量適用）
-                speaker: VoicevoxSpeaker = VoicevoxSpeaker(
+                self.active_speaker_instance = VoicevoxSpeaker(
                     output_device_index=self.current_device,
                     output_device_index_2=self.current_device_2,
                     speaker_2_enabled=self.speaker_2_enabled)
-                self._play_audio_with_volume(speaker, audio_data)
+                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
             else:
-                self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
+                if not self.clear_audio_requested:
+                    self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
 
 
         except Exception as e:
-            self.after(
-                0, lambda msg=f"音声合成エラー: {str(e)}": self.status_var.set(msg))
+            if not self.clear_audio_requested:
+                self.after(
+                    0, lambda msg=f"音声合成エラー: {str(e)}": self.status_var.set(msg))
         finally:
             self.playback_lock.release()
+            self.active_speaker_instance = None
+
+    def on_stop_and_clear_audio(self) -> None:
+        self.status_var.set("停止リクエスト受信。オーディオをクリア・停止処理を開始します...")
+        self.update_idletasks() # Ensure status message updates immediately
+
+        self.clear_audio_requested = True
+
+        if self.active_speaker_instance:
+            print("Stop/Clear: Attempting to stop active speaker instance.")
+            try:
+                self.active_speaker_instance.request_stop()
+                # self.status_var.set("アクティブな再生の停止を試みました。") # This might be too quick / overwritten
+            except Exception as e:
+                print(f"Stop/Clear: Error stopping active speaker: {e}")
+                # self.status_var.set(f"スピーカー停止エラー: {e}")
+        else:
+            print("Stop/Clear: No active speaker instance to stop.")
+            # self.status_var.set("停止するアクティブな再生はありません。")
+
+        # Threads waiting for playback_lock will check clear_audio_requested
+        # once they acquire the lock and should then cancel themselves.
+        # No explicit action on playback_lock needed here other than what request_stop might do
+        # to the stream, which then unblocks the play_bytes method.
 
     def on_closing(self) -> None:
         """アプリケーション終了時の処理"""
