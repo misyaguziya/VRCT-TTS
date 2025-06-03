@@ -14,7 +14,7 @@ from typing import Optional, Dict, Union, List
 class VoicevoxSpeaker:
     """VOICEVOXの音声を特定のスピーカーデバイスで再生するクラス"""
 
-    def __init__(self, output_device_index: Optional[int] = None):
+    def __init__(self, output_device_index: Optional[int] = None, output_device_index_2: Optional[int] = None, speaker_2_enabled: bool = False):
         """
         VoicevoxSpeakerの初期化
 
@@ -22,8 +22,14 @@ class VoicevoxSpeaker:
             output_device_index (Optional[int], optional): 
                 出力デバイスのインデックス。Noneの場合はデフォルトデバイスを使用。
                 利用可能なデバイスは list_audio_devices() で確認できます。
+            output_device_index_2 (Optional[int], optional):
+                2番目の出力デバイスのインデックス。Noneの場合は使用しない。
+            speaker_2_enabled (bool, optional):
+                2番目のスピーカー出力を有効にするかどうか。デフォルトはFalse。
         """
         self.output_device_index = output_device_index
+        self.output_device_index_2 = output_device_index_2
+        self.speaker_2_enabled = speaker_2_enabled
         self.p = pyaudio.PyAudio()
 
     def __del__(self) -> None:
@@ -82,6 +88,15 @@ class VoicevoxSpeaker:
                     output=True,
                     output_device_index=self.output_device_index
                 )
+                stream2 = None
+                if self.speaker_2_enabled and self.output_device_index_2 is not None:
+                    stream2 = self.p.open(
+                        format=self.p.get_format_from_width(width),
+                        channels=channels,
+                        rate=rate,
+                        output=True,
+                        output_device_index=self.output_device_index_2
+                    )
 
                 # データを読み込んで再生
                 chunk_size = 1024
@@ -90,13 +105,19 @@ class VoicevoxSpeaker:
                 try:
                     while len(data) > 0:
                         stream.write(data)
+                        if stream2:
+                            stream2.write(data)
                         data = wf.readframes(chunk_size)
 
                     if wait:
                         # バッファ内のデータ再生完了まで待機
                         stream.stop_stream()
+                        if stream2:
+                            stream2.stop_stream()
                 finally:
                     stream.close()
+                    if stream2:
+                        stream2.close()
 
     def play_file(self, file_path: str, wait: bool = True) -> None:
         """
@@ -123,6 +144,15 @@ class VoicevoxSpeaker:
                 output=True,
                 output_device_index=self.output_device_index
             )
+            stream2 = None
+            if self.speaker_2_enabled and self.output_device_index_2 is not None:
+                stream2 = self.p.open(
+                    format=self.p.get_format_from_width(width),
+                    channels=channels,
+                    rate=rate,
+                    output=True,
+                    output_device_index=self.output_device_index_2
+                )
 
             # データを読み込んで再生
             chunk_size = 1024
@@ -131,13 +161,19 @@ class VoicevoxSpeaker:
             try:
                 while len(data) > 0:
                     stream.write(data)
+                    if stream2:
+                        stream2.write(data)
                     data = wf.readframes(chunk_size)
 
                 if wait:
                     # バッファ内のデータ再生完了まで待機
                     stream.stop_stream()
+                    if stream2:
+                        stream2.stop_stream()
             finally:
                 stream.close()
+                if stream2:
+                    stream2.close()
         finally:
             wf.close()
 

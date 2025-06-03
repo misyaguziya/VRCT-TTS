@@ -55,8 +55,24 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.current_character: Optional[Dict[str, Any]] = None
         self.current_style: Optional[int] = None
         self.current_device: Optional[int] = None
+        self.current_device_2: Optional[int] = None # For second speaker
+        self.speaker_2_enabled: bool = False      # For second speaker
         self.volume: float = 0.8  # デフォルトの音量 (0.0-1.0)
         self.ws_url: str = "ws://127.0.0.1:2231"
+
+        # UI Variables
+        self.character_var = ctk.StringVar()
+        self.style_var = ctk.StringVar()
+        self.device_var = ctk.StringVar()
+        self.device_var_2 = ctk.StringVar() # For second speaker
+        self.speaker_2_enabled_var = ctk.BooleanVar(value=False) # For second speaker
+        self.volume_value_var: Optional[ctk.StringVar] = None
+        self.ws_url_var: Optional[ctk.StringVar] = None
+        self.ws_button_var: Optional[ctk.StringVar] = None
+        self.ws_status_var: Optional[ctk.StringVar] = None
+        self.test_text_var: Optional[ctk.StringVar] = None
+        self.status_var: Optional[ctk.StringVar] = None
+
 
         # WebSocket関連の変数
         self.ws: Optional[websocket.WebSocketApp] = None
@@ -80,6 +96,14 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def create_ui(self) -> None:
         """UIコンポーネントの作成"""
+        # Initialize other StringVars that were previously Optional
+        self.volume_value_var = ctk.StringVar(value=f"{int(self.volume * 100)}%")
+        self.ws_url_var = ctk.StringVar(value=self.ws_url)
+        self.ws_button_var = ctk.StringVar(value="WebSocket接続開始")
+        self.ws_status_var = ctk.StringVar(value="WebSocket: 未接続")
+        self.test_text_var = ctk.StringVar(value="こんにちは、VOICEVOXです。")
+        self.status_var = ctk.StringVar(value="準備完了")
+
         # メインフレーム
         self.main_frame: ctk.CTkFrame = ctk.CTkFrame(self)
         self.main_frame.pack(fill="both", padx=20, pady=20)
@@ -118,10 +142,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         char_label.pack(anchor="w", padx=10, pady=5)
 
         # キャラクター選択のComboBox
-        self.character_var: ctk.StringVar = ctk.StringVar()
+        # self.character_var: ctk.StringVar = ctk.StringVar() # Already initialized
         self.character_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
             left_frame,
-            variable=self.character_var,
+            variable=self.character_var, # Use the initialized variable
             values=["キャラクターを読み込み中..."],
             font=self.font_normal_14,
             dropdown_font=self.font_normal_14,
@@ -138,10 +162,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         style_label_left.pack(anchor="w", padx=10, pady=5)
 
-        self.style_var: ctk.StringVar = ctk.StringVar()
+        # self.style_var: ctk.StringVar = ctk.StringVar() # Already initialized
         self.style_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
             left_frame,
-            variable=self.style_var,
+            variable=self.style_var, # Use the initialized variable
             values=["スタイルを読み込み中..."],
             font=self.font_normal_14,
             dropdown_font=self.font_normal_14,
@@ -159,10 +183,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         device_label.pack(anchor="w", padx=10, pady=5)
 
-        self.device_var: ctk.StringVar = ctk.StringVar()
+        # self.device_var: ctk.StringVar = ctk.StringVar() # Already initialized
         self.device_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
             left_frame,
-            variable=self.device_var,
+            variable=self.device_var, # Use the initialized variable
             values=["デバイスを読み込み中..."],
             font=self.font_normal_14,
             dropdown_font=self.font_normal_14,
@@ -171,6 +195,36 @@ class VoicevoxConnectorGUI(ctk.CTk):
             command=self.on_device_change
         )
         self.device_dropdown.pack(fill="x", padx=10, pady=5)
+
+        # --- Add UI elements for second speaker ---
+        device_label_2: ctk.CTkLabel = ctk.CTkLabel(
+            left_frame,
+            text="第2出力デバイス",
+            font=self.font_normal_14
+        )
+        device_label_2.pack(anchor="w", padx=10, pady=5)
+
+        self.device_dropdown_2: ctk.CTkComboBox = ctk.CTkComboBox(
+            left_frame,
+            variable=self.device_var_2, # Use the initialized variable
+            values=["デバイスを読み込み中..."],
+            font=self.font_normal_14,
+            dropdown_font=self.font_normal_14,
+            width=300,
+            state="readonly",
+            command=self.on_device_2_change # To be created
+        )
+        self.device_dropdown_2.pack(fill="x", padx=10, pady=5)
+
+        self.speaker_2_enable_checkbox: ctk.CTkCheckBox = ctk.CTkCheckBox(
+            left_frame,
+            text="第2スピーカーを有効にする",
+            variable=self.speaker_2_enabled_var, # Use the initialized variable
+            font=self.font_normal_14,
+            command=self.on_speaker_2_enable_change # To be created
+        )
+        self.speaker_2_enable_checkbox.pack(anchor="w", padx=10, pady=10)
+        # --- End of UI elements for second speaker ---
 
         # 音量調整スライダー
         volume_label: ctk.CTkLabel = ctk.CTkLabel(
@@ -181,11 +235,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         volume_label.pack(anchor="w", padx=10, pady=5)
 
         # 音量値表示用のラベル
-        self.volume_value_var: ctk.StringVar = ctk.StringVar(
-            value=f"{int(self.volume * 100)}%")
+        # self.volume_value_var: ctk.StringVar = ctk.StringVar(value=f"{int(self.volume * 100)}%") # Already initialized
         volume_value_label: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
-            textvariable=self.volume_value_var,
+            textvariable=self.volume_value_var, # Use the initialized variable
             font=self.font_normal_14,
             width=40
         )
@@ -213,21 +266,20 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         ws_label.pack(anchor="w", padx=10, pady=5)
 
-        self.ws_url_var: ctk.StringVar = ctk.StringVar(value=self.ws_url)
+        # self.ws_url_var: ctk.StringVar = ctk.StringVar(value=self.ws_url) # Already initialized
         self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
             ws_frame,
             width=300,
             font=self.font_normal_14,
-            textvariable=self.ws_url_var
+            textvariable=self.ws_url_var # Use the initialized variable
         )
         self.ws_entry.pack(fill="x", padx=10, pady=5)
 
         # WebSocket接続ボタン
-        self.ws_button_var: ctk.StringVar = ctk.StringVar(
-            value="WebSocket接続開始")
+        # self.ws_button_var: ctk.StringVar = ctk.StringVar(value="WebSocket接続開始") # Already initialized
         self.ws_button: ctk.CTkButton = ctk.CTkButton(
             ws_frame,
-            textvariable=self.ws_button_var,
+            textvariable=self.ws_button_var, # Use the initialized variable
             font=self.font_normal_14,
             command=self.toggle_websocket_connection,
             fg_color="#1E5631",  # 接続時は緑色
@@ -236,11 +288,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_button.pack(pady=10)
 
         # WebSocket接続状態ラベル
-        self.ws_status_var: ctk.StringVar = ctk.StringVar(
-            value="WebSocket: 未接続")
+        # self.ws_status_var: ctk.StringVar = ctk.StringVar(value="WebSocket: 未接続") # Already initialized
         self.ws_status_label: ctk.CTkLabel = ctk.CTkLabel(
             ws_frame,
-            textvariable=self.ws_status_var,
+            textvariable=self.ws_status_var, # Use the initialized variable
             font=self.font_normal_14,
             text_color="gray"
         )
@@ -257,13 +308,12 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         test_label.pack(anchor="w", padx=10, pady=5)
 
-        self.test_text_var: ctk.StringVar = ctk.StringVar(
-            value="こんにちは、VOICEVOXです。")
+        # self.test_text_var: ctk.StringVar = ctk.StringVar(value="こんにちは、VOICEVOXです。") # Already initialized
         self.test_text_entry: ctk.CTkEntry = ctk.CTkEntry(
             test_frame,
             font=self.font_normal_14,
             width=300,
-            textvariable=self.test_text_var
+            textvariable=self.test_text_var # Use the initialized variable
         )
         self.test_text_entry.pack(fill="x", padx=10, pady=5)
 
@@ -276,10 +326,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.play_button.pack(pady=10)
 
         # ステータスバー
-        self.status_var: ctk.StringVar = ctk.StringVar(value="準備完了")
+        # self.status_var: ctk.StringVar = ctk.StringVar(value="準備完了") # Already initialized
         self.status_bar: ctk.CTkLabel = ctk.CTkLabel(
             self.main_frame,
-            textvariable=self.status_var,
+            textvariable=self.status_var, # Use the initialized variable
             font=self.font_normal_12,
             height=25,
             anchor="w"
@@ -331,6 +381,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         device_names: List[str] = [
             "デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in self.audio_devices]
         self.device_dropdown.configure(values=device_names)
+        if hasattr(self, 'device_dropdown_2'): # Check if UI element exists
+            self.device_dropdown_2.configure(values=device_names)
 
         # 設定からデバイス選択を復元
         if self.current_device is not None:
@@ -339,6 +391,19 @@ class VoicevoxConnectorGUI(ctk.CTk):
             self.device_var.set(device_name)
         else:
             self.device_var.set("デフォルト")
+
+        # 設定から第2デバイス選択を復元
+        if hasattr(self, 'device_var_2'): # Check if UI variable exists
+            if self.current_device_2 is not None:
+                device_name_2: str = next((
+                    f"{device['name']} (インデックス: {device['index']})" for device in self.audio_devices if device['index'] == self.current_device_2), "デフォルト")
+                self.device_var_2.set(device_name_2)
+            else:
+                self.device_var_2.set("デフォルト")
+
+        # 第2スピーカー有効状態を復元
+        if hasattr(self, 'speaker_2_enabled_var'): # Check if UI variable exists
+            self.speaker_2_enabled_var.set(self.speaker_2_enabled)
 
         # キャラクターリストの更新
         self._update_character_list()
@@ -440,6 +505,27 @@ class VoicevoxConnectorGUI(ctk.CTk):
         device_index: int = int(choice.split("インデックス: ")[1].rstrip(")"))
         self.current_device = device_index
 
+    def on_device_2_change(self, choice: str) -> None:
+        """第2デバイスが変更されたときの処理"""
+        if not choice or choice == "デフォルト":
+            self.current_device_2 = None
+            return
+        # 選択されたデバイスからインデックスを取得
+        try:
+            device_index_2: int = int(choice.split("インデックス: ")[1].rstrip(")"))
+            self.current_device_2 = device_index_2
+        except (IndexError, ValueError) as e:
+            print(f"第2デバイス選択エラー: {str(e)}")
+            self.current_device_2 = None
+            self.device_var_2.set("デフォルト")
+
+
+    def on_speaker_2_enable_change(self) -> None:
+        """第2スピーカー有効チェックボックスが変更されたときの処理"""
+        if hasattr(self, 'speaker_2_enabled_var'):
+            self.speaker_2_enabled = self.speaker_2_enabled_var.get()
+
+
     def on_volume_change(self, value: float) -> None:
         """スライダーで音量が変更されたときの処理"""
         self.volume = value
@@ -540,7 +626,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
             if audio_data:
                 # 音声を再生（音量適用）
                 speaker: VoicevoxSpeaker = VoicevoxSpeaker(
-                    output_device_index=self.current_device)
+                    output_device_index=self.current_device,
+                    output_device_index_2=self.current_device_2,
+                    speaker_2_enabled=self.speaker_2_enabled)
                 self._play_audio_with_volume(speaker, audio_data)
                 # ステータスの更新
                 self.after(0, lambda: self.status_var.set("再生完了"))
@@ -556,6 +644,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         config: Dict[str, Any] = Config.load()
         self.current_style = config.get("speaker_id")
         self.current_device = config.get("device_index")
+        self.current_device_2 = config.get("device_index_2") # Load second device
+        self.speaker_2_enabled = config.get("speaker_2_enabled", False) # Load second speaker enabled state, default to False
         self.volume = config.get("volume", 0.8)  # デフォルトは0.8
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
 
@@ -564,6 +654,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         config_data: Dict[str, Any] = {
             "speaker_id": self.current_style,
             "device_index": self.current_device,
+            "device_index_2": self.current_device_2, # Save second device
+            "speaker_2_enabled": self.speaker_2_enabled, # Save second speaker enabled state
             "volume": self.volume,
             "ws_url": self.ws_url_var.get()
         }
@@ -699,7 +791,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
             if audio_data:
                 # 音声を再生（音量適用）
                 speaker: VoicevoxSpeaker = VoicevoxSpeaker(
-                    output_device_index=self.current_device)
+                    output_device_index=self.current_device,
+                    output_device_index_2=self.current_device_2,
+                    speaker_2_enabled=self.speaker_2_enabled)
                 self._play_audio_with_volume(speaker, audio_data)
             else:
                 self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
