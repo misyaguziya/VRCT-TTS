@@ -26,6 +26,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
+        
+        # アプリケーションのバージョン情報
+        self.app_version = "v1.1.1"
 
         # アプリケーションのパスを取得
         if getattr(sys, 'frozen', False):
@@ -328,7 +331,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # 再生停止とクリアボタン（テスト再生フレームの外、右フレーム直下に配置）
         self.stop_clear_button: ctk.CTkButton = ctk.CTkButton(
-            right_frame,  # right_frameに配置（test_frameの外）
+            right_frame,  # right_frameに配置（test_frameの外
             text="再生停止とクリア",
             command=self.on_stop_and_clear_audio, # To be implemented
             font=self.font_normal_14,
@@ -336,17 +339,30 @@ class VoicevoxConnectorGUI(ctk.CTk):
             hover_color="#8B0000"  # Darker red
         )
         self.stop_clear_button.pack(pady=10)
-
-        # ステータスバー
-        # self.status_var: ctk.StringVar = ctk.StringVar(value="準備完了") # Already initialized
+        
+        # ステータスバーとバージョン情報を配置するフレーム
+        status_frame: ctk.CTkFrame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        status_frame.pack(fill="x", side="bottom", padx=10, pady=(5, 0))
+        
+        # ステータスバー（左寄せ）
         self.status_bar: ctk.CTkLabel = ctk.CTkLabel(
-            self.main_frame,
-            textvariable=self.status_var, # Use the initialized variable
+            status_frame,
+            textvariable=self.status_var,
             font=self.font_normal_12,
             height=25,
             anchor="w"
         )
-        self.status_bar.pack(fill="x", side="bottom", padx=10)
+        self.status_bar.pack(fill="x", side="left", expand=True)
+        
+        # バージョン情報ラベル（右寄せ）
+        version_label: ctk.CTkLabel = ctk.CTkLabel(
+            status_frame,
+            text=self.app_version,
+            font=self.font_normal_12,
+            height=25,
+            anchor="e"
+        )
+        version_label.pack(side="right", padx=(10, 0))
 
         # 保存ボタン
         self.save_button: ctk.CTkButton = ctk.CTkButton(
