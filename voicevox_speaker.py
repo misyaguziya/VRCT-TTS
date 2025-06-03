@@ -8,6 +8,7 @@ VOICEVOX Engine APIで生成した音声を特定のスピーカーデバイス�
 import io
 import wave
 import pyaudio
+import threading
 from typing import Optional, Dict, Union, List
 
 
@@ -34,6 +35,7 @@ class VoicevoxSpeaker:
         self.stop_requested: bool = False
         self.current_stream_1: Optional[pyaudio.Stream] = None
         self.current_stream_2: Optional[pyaudio.Stream] = None
+        self._stream_lock = threading.Lock()  # ストリームアクセス用のロック
 
     def __del__(self) -> None:
         """クリーンアップ処理"""
@@ -75,9 +77,10 @@ class VoicevoxSpeaker:
             audio_data (bytes): WAV形式の音声データ
             wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
         """
-        self.stop_requested = False
-        self.current_stream_1 = None
-        self.current_stream_2 = None
+        with self._stream_lock:
+            self.stop_requested = False
+            self.current_stream_1 = None
+            self.current_stream_2 = None
 
         # バイトデータをWaveReadオブジェクトに変換
         with io.BytesIO(audio_data) as f:
@@ -88,6 +91,90 @@ class VoicevoxSpeaker:
                 rate = wf.getframerate()
 
                 # ストリームを開く
+                with self._stream_lock:
+                    if self.stop_requested:
+                        return
+                    
+                    self.current_stream_1 = self.p.open(
+                        format=self.p.get_format_from_width(width),
+                        channels=channels,
+                        rate=rate,
+                        output=True,
+                        output_device_index=self.output_device_index
+                    )
+                    if self.speaker_2_enabled and self.output_device_index_2 is not None:
+                        self.current_stream_2 = self.p.open(
+                            format=self.p.get_format_from_width(width),
+                            channels=channels,
+                            rate=rate,
+                            output=True,
+                            output_device_index=self.output_device_index_2
+                        )
+
+                # データを読み込んで再生
+                chunk_size = 1024
+                data = wf.readframes(chunk_size)
+
+                try:
+                    while len(data) > 0:
+                        with self._stream_lock:
+                            if self.stop_requested:
+                                break
+                            if self.current_stream_1:
+                                self.current_stream_1.write(data)
+                            if self.current_stream_2:
+                                self.current_stream_2.write(data)
+                        data = wf.readframes(chunk_size)
+
+                    if wait and not self.stop_requested:
+                        with self._stream_lock:
+                            if self.current_stream_1:
+                                self.current_stream_1.stop_stream()
+                            if self.current_stream_2:
+                                self.current_stream_2.stop_stream()
+                finally:
+                    with self._stream_lock:
+                        if self.current_stream_1:
+                            try:
+                                self.current_stream_1.close()
+                            except Exception:
+                                pass
+                        if self.current_stream_2:
+                            try:
+                                self.current_stream_2.close()
+                            except Exception:
+                                pass
+                        # Reset stream attributes after closing
+                        self.current_stream_1 = None
+                        self.current_stream_2 = None
+
+    def play_file(self, file_path: str, wait: bool = True) -> None:
+        """
+        ファイルを再生する
+
+        Args:
+            file_path (str): WAVファイルのパス
+            wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
+        """
+        with self._stream_lock:
+            self.stop_requested = False
+            self.current_stream_1 = None
+            self.current_stream_2 = None
+
+        # ファイルを開く
+        wf = wave.open(file_path, 'rb')
+
+        try:
+            # WAVファイルから情報を取得
+            channels = wf.getnchannels()
+            width = wf.getsampwidth()
+            rate = wf.getframerate()
+
+            # ストリームを開く
+            with self._stream_lock:
+                if self.stop_requested:
+                    return
+                
                 self.current_stream_1 = self.p.open(
                     format=self.p.get_format_from_width(width),
                     channels=channels,
@@ -104,123 +191,61 @@ class VoicevoxSpeaker:
                         output_device_index=self.output_device_index_2
                     )
 
-                # データを読み込んで再生
-                chunk_size = 1024
-                data = wf.readframes(chunk_size)
-
-                try:
-                    while len(data) > 0:
-                        if self.stop_requested:
-                            break
-                        if self.current_stream_1: # Check if stream exists before writing
-                            self.current_stream_1.write(data)
-                        if self.current_stream_2: # Check if stream exists before writing
-                            self.current_stream_2.write(data)
-                        data = wf.readframes(chunk_size)
-
-                    if wait and not self.stop_requested: # Only stop if not already stopped
-                        if self.current_stream_1:
-                            self.current_stream_1.stop_stream()
-                        if self.current_stream_2:
-                            self.current_stream_2.stop_stream()
-                finally:
-                    if self.current_stream_1:
-                        self.current_stream_1.close()
-                    if self.current_stream_2:
-                        self.current_stream_2.close()
-                    # Reset stream attributes after closing
-                    self.current_stream_1 = None
-                    self.current_stream_2 = None
-
-
-    def play_file(self, file_path: str, wait: bool = True) -> None:
-        """
-        ファイルを再生する
-
-        Args:
-            file_path (str): WAVファイルのパス
-            wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
-        """
-        self.stop_requested = False
-        self.current_stream_1 = None
-        self.current_stream_2 = None
-
-        # ファイルを開く
-        wf = wave.open(file_path, 'rb')
-
-        try:
-            # WAVファイルから情報を取得
-            channels = wf.getnchannels()
-            width = wf.getsampwidth()
-            rate = wf.getframerate()
-
-            # ストリームを開く
-            self.current_stream_1 = self.p.open(
-                format=self.p.get_format_from_width(width),
-                channels=channels,
-                rate=rate,
-                output=True,
-                output_device_index=self.output_device_index
-            )
-            if self.speaker_2_enabled and self.output_device_index_2 is not None:
-                self.current_stream_2 = self.p.open(
-                    format=self.p.get_format_from_width(width),
-                    channels=channels,
-                    rate=rate,
-                    output=True,
-                    output_device_index=self.output_device_index_2
-                )
-
             # データを読み込んで再生
             chunk_size = 1024
             data = wf.readframes(chunk_size)
 
             try:
                 while len(data) > 0:
-                    if self.stop_requested:
-                        break
-                    if self.current_stream_1: # Check if stream exists before writing
-                        self.current_stream_1.write(data)
-                    if self.current_stream_2: # Check if stream exists before writing
-                        self.current_stream_2.write(data)
+                    with self._stream_lock:
+                        if self.stop_requested:
+                            break
+                        if self.current_stream_1:
+                            self.current_stream_1.write(data)
+                        if self.current_stream_2:
+                            self.current_stream_2.write(data)
                     data = wf.readframes(chunk_size)
 
-                if wait and not self.stop_requested: # Only stop if not already stopped
-                    if self.current_stream_1:
-                        self.current_stream_1.stop_stream()
-                    if self.current_stream_2:
-                        self.current_stream_2.stop_stream()
+                if wait and not self.stop_requested:
+                    with self._stream_lock:
+                        if self.current_stream_1:
+                            self.current_stream_1.stop_stream()
+                        if self.current_stream_2:
+                            self.current_stream_2.stop_stream()
             finally:
-                if self.current_stream_1:
-                    self.current_stream_1.close()
-                if self.current_stream_2:
-                    self.current_stream_2.close()
-                 # Reset stream attributes after closing
-                self.current_stream_1 = None
-                self.current_stream_2 = None
+                with self._stream_lock:
+                    if self.current_stream_1:
+                        try:
+                            self.current_stream_1.close()
+                        except Exception:
+                            pass
+                    if self.current_stream_2:
+                        try:
+                            self.current_stream_2.close()
+                        except Exception:
+                            pass
+                    # Reset stream attributes after closing
+                    self.current_stream_1 = None
+                    self.current_stream_2 = None
         finally:
             wf.close()
 
     def request_stop(self) -> None:
         """再生の停止をリクエストする"""
-        self.stop_requested = True
-        try:
-            if self.current_stream_1 and self.current_stream_1.is_active():
-                self.current_stream_1.stop_stream()
-                self.current_stream_1.close()
-        except Exception:
-            pass # Ignore errors on stop
-        finally:
-            self.current_stream_1 = None # Ensure it's cleared
+        with self._stream_lock:
+            self.stop_requested = True
+            # ストリームが存在する場合はstop_streamのみ呼び出し、closeは再生ループに任せる
+            try:
+                if self.current_stream_1 and self.current_stream_1.is_active():
+                    self.current_stream_1.stop_stream()
+            except Exception:
+                pass
 
-        try:
-            if self.current_stream_2 and self.current_stream_2.is_active():
-                self.current_stream_2.stop_stream()
-                self.current_stream_2.close()
-        except Exception:
-            pass # Ignore errors on stop
-        finally:
-            self.current_stream_2 = None # Ensure it's cleared
+            try:
+                if self.current_stream_2 and self.current_stream_2.is_active():
+                    self.current_stream_2.stop_stream()
+            except Exception:
+                pass
 
 
 # 使用例

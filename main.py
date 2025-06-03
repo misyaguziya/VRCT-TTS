@@ -868,21 +868,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.clear_audio_requested = True
 
         if self.active_speaker_instance:
-            print("Stop/Clear: Attempting to stop active speaker instance.")
+            # print("Stop/Clear: Attempting to stop active speaker instance.")
             try:
                 self.active_speaker_instance.request_stop()
-                # self.status_var.set("アクティブな再生の停止を試みました。") # This might be too quick / overwritten
+                self.status_var.set("アクティブな再生を停止しました。")
             except Exception as e:
-                print(f"Stop/Clear: Error stopping active speaker: {e}")
-                # self.status_var.set(f"スピーカー停止エラー: {e}")
+                # print(f"Stop/Clear: Error stopping active speaker: {e}")
+                self.status_var.set(f"スピーカー停止エラー: {e}")
         else:
-            print("Stop/Clear: No active speaker instance to stop.")
-            # self.status_var.set("停止するアクティブな再生はありません。")
-
-        # Threads waiting for playback_lock will check clear_audio_requested
-        # once they acquire the lock and should then cancel themselves.
-        # No explicit action on playback_lock needed here other than what request_stop might do
-        # to the stream, which then unblocks the play_bytes method.
+            # print("Stop/Clear: No active speaker instance to stop.")
+            self.status_var.set("停止するアクティブな再生はありません。")
 
     def on_closing(self) -> None:
         """アプリケーション終了時の処理"""
