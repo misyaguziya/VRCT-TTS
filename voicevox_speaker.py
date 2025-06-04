@@ -7,7 +7,7 @@ VOICEVOX Engine APIで生成した音声を特定のスピーカーデバイス�
 
 import io
 import wave
-import pyaudio
+import pyaudiowpatch as pyaudio
 import threading
 from typing import Optional, Dict, Union, List
 
