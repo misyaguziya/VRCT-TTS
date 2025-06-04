@@ -95,13 +95,18 @@ class VoicevoxSpeaker:
                             fixed_name = f"Audio Device {i}"
                             # logging.error(f"Failed to fix device name '{original_name}': {e}")
                     else:
-                        fixed_name = str(device_name)
+                        fixed_name = str(device_name)                    # ホスト情報を取得
+                    host_api_index = device_info['hostApi']
+                    host_info = p.get_host_api_info_by_index(host_api_index)
+                    host_name = host_info['name']
 
                     devices.append({
                         'index': i,
                         'name': fixed_name,
                         'channels': device_info['maxOutputChannels'],
-                        'sample_rate': int(device_info['defaultSampleRate'])
+                        'sample_rate': int(device_info['defaultSampleRate']),
+                        'host_api_index': host_api_index,
+                        'host_name': host_name
                     })
         finally:
             p.terminate()

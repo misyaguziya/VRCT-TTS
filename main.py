@@ -57,6 +57,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.current_device: Optional[int] = None
         self.current_device_2: Optional[int] = None # For second speaker
         self.speaker_2_enabled: bool = False      # For second speaker
+        self.current_host: Optional[str] = None   # For host selection
+        self.current_host_2: Optional[str] = None # For second speaker host
         self.volume: float = 0.8  # デフォルトの音量 (0.0-1.0)
         self.ws_url: str = "ws://127.0.0.1:2231"
 
@@ -66,6 +68,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.device_var = ctk.StringVar()
         self.device_var_2 = ctk.StringVar() # For second speaker
         self.speaker_2_enabled_var = ctk.BooleanVar(value=False) # For second speaker
+        self.host_var = ctk.StringVar()     # For host selection
+        self.host_var_2 = ctk.StringVar()   # For second speaker host
         self.volume_value_var: Optional[ctk.StringVar] = None
         self.ws_url_var: Optional[ctk.StringVar] = None
         self.ws_button_var: Optional[ctk.StringVar] = None
@@ -178,9 +182,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
             state="readonly",
             command=self.on_style_change
         )
-        self.style_dropdown.pack(fill="x", padx=10, pady=5)
-
-        # オーディオ出力デバイス選択
+        self.style_dropdown.pack(fill="x", padx=10, pady=5)        # オーディオ出力デバイス選択
         device_label: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
             text="出力デバイス",
@@ -188,20 +190,35 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         device_label.pack(anchor="w", padx=10, pady=5)
 
-        # self.device_var: ctk.StringVar = ctk.StringVar() # Already initialized
+        # デバイス選択用の水平フレーム
+        device_frame: ctk.CTkFrame = ctk.CTkFrame(left_frame)
+        device_frame.pack(fill="x", padx=10, pady=5)
+
+        # ホスト選択コンボボックス
+        self.host_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
+            device_frame,
+            variable=self.host_var,
+            values=["ホストを読み込み中..."],
+            font=self.font_normal_12,
+            dropdown_font=self.font_normal_12,
+            width=120,
+            state="readonly",
+            command=self.on_host_change
+        )
+        self.host_dropdown.pack(side="left", padx=(0, 5))
+
+        # デバイス選択コンボボックス
         self.device_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            left_frame,
-            variable=self.device_var, # Use the initialized variable
+            device_frame,
+            variable=self.device_var,
             values=["デバイスを読み込み中..."],
-            font=self.font_normal_14,
-            dropdown_font=self.font_normal_14,
-            width=300,
+            font=self.font_normal_12,
+            dropdown_font=self.font_normal_12,
+            width=170,
             state="readonly",
             command=self.on_device_change
         )
-        self.device_dropdown.pack(fill="x", padx=10, pady=5)
-
-        # --- Add UI elements for second speaker ---
+        self.device_dropdown.pack(side="left", fill="x", expand=True)        # --- Add UI elements for second speaker ---
         device_label_2: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
             text="第2出力デバイス",
@@ -209,17 +226,35 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         device_label_2.pack(anchor="w", padx=10, pady=5)
 
-        self.device_dropdown_2: ctk.CTkComboBox = ctk.CTkComboBox(
-            left_frame,
-            variable=self.device_var_2, # Use the initialized variable
-            values=["デバイスを読み込み中..."],
-            font=self.font_normal_14,
-            dropdown_font=self.font_normal_14,
-            width=300,
+        # 第2デバイス選択用の水平フレーム
+        device_frame_2: ctk.CTkFrame = ctk.CTkFrame(left_frame)
+        device_frame_2.pack(fill="x", padx=10, pady=5)
+
+        # 第2ホスト選択コンボボックス
+        self.host_dropdown_2: ctk.CTkComboBox = ctk.CTkComboBox(
+            device_frame_2,
+            variable=self.host_var_2,
+            values=["ホストを読み込み中..."],
+            font=self.font_normal_12,
+            dropdown_font=self.font_normal_12,
+            width=120,
             state="readonly",
-            command=self.on_device_2_change # To be created
+            command=self.on_host_2_change
         )
-        self.device_dropdown_2.pack(fill="x", padx=10, pady=5)
+        self.host_dropdown_2.pack(side="left", padx=(0, 5))
+
+        # 第2デバイス選択コンボボックス
+        self.device_dropdown_2: ctk.CTkComboBox = ctk.CTkComboBox(
+            device_frame_2,
+            variable=self.device_var_2,
+            values=["デバイスを読み込み中..."],
+            font=self.font_normal_12,
+            dropdown_font=self.font_normal_12,
+            width=170,
+            state="readonly",
+            command=self.on_device_2_change
+        )
+        self.device_dropdown_2.pack(side="left", fill="x", expand=True)
 
         self.speaker_2_enable_checkbox: ctk.CTkCheckBox = ctk.CTkCheckBox(
             left_frame,
@@ -405,39 +440,76 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def _update_ui_with_data(self) -> None:
         """取得したデータでUIを更新する"""
-        # オーディオデバイスリストの更新
-        device_names: List[str] = [
-            "デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in self.audio_devices]
-        self.device_dropdown.configure(values=device_names)
-        if hasattr(self, 'device_dropdown_2'): # Check if UI element exists
-            self.device_dropdown_2.configure(values=device_names)
-
-        # 設定からデバイス選択を復元
-        if self.current_device is not None:
-            device_name: str = next((
-                f"{device['name']} (インデックス: {device['index']})" for device in self.audio_devices if device['index'] == self.current_device), "デフォルト")
-            self.device_var.set(device_name)
+        # ホストリストの作成
+        host_names = list(set([device['host_name'] for device in self.audio_devices]))
+        host_names = ["すべて"] + sorted(host_names)
+        
+        # ホストコンボボックスの更新
+        self.host_dropdown.configure(values=host_names)
+        self.host_dropdown_2.configure(values=host_names)
+        
+        # 初期ホスト選択
+        if self.current_host is not None and self.current_host in host_names:
+            self.host_var.set(self.current_host)
         else:
-            self.device_var.set("デフォルト")
+            self.host_var.set("すべて")
+            self.current_host = "すべて"
+            
+        if self.current_host_2 is not None and self.current_host_2 in host_names:
+            self.host_var_2.set(self.current_host_2)
+        else:
+            self.host_var_2.set("すべて")
+            self.current_host_2 = "すべて"
 
-        # 設定から第2デバイス選択を復元
-        if hasattr(self, 'device_var_2'): # Check if UI variable exists
-            if self.current_device_2 is not None:
-                device_name_2: str = next((
-                    f"{device['name']} (インデックス: {device['index']})" for device in self.audio_devices if device['index'] == self.current_device_2), "デフォルト")
-                self.device_var_2.set(device_name_2)
-            else:
-                self.device_var_2.set("デフォルト")
-
-        # 第2スピーカー有効状態を復元
-        if hasattr(self, 'speaker_2_enabled_var'): # Check if UI variable exists
-            self.speaker_2_enabled_var.set(self.speaker_2_enabled)
+        # デバイスリストを更新
+        self._update_device_lists()
 
         # キャラクターリストの更新
         self._update_character_list()
 
         # ステータスの更新
         self.status_var.set("データの読み込みが完了しました")
+
+    def _update_device_lists(self) -> None:
+        """選択されたホストに基づいてデバイスリストを更新"""
+        # 第1デバイス用のデバイスリスト作成
+        selected_host = self.host_var.get()
+        if selected_host == "すべて":
+            filtered_devices = self.audio_devices
+        else:
+            filtered_devices = [device for device in self.audio_devices if device['host_name'] == selected_host]
+        
+        device_names: List[str] = ["デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices]
+        self.device_dropdown.configure(values=device_names)
+
+        # 設定からデバイス選択を復元
+        if self.current_device is not None:
+            device_name: str = next((
+                f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices if device['index'] == self.current_device), "デフォルト")
+            self.device_var.set(device_name)
+        else:
+            self.device_var.set("デフォルト")
+
+        # 第2デバイス用のデバイスリスト作成
+        selected_host_2 = self.host_var_2.get()
+        if selected_host_2 == "すべて":
+            filtered_devices_2 = self.audio_devices
+        else:
+            filtered_devices_2 = [device for device in self.audio_devices if device['host_name'] == selected_host_2]
+        
+        device_names_2: List[str] = ["デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2]
+        self.device_dropdown_2.configure(values=device_names_2)
+
+        # 設定から第2デバイス選択を復元
+        if self.current_device_2 is not None:
+            device_name_2: str = next((
+                f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2 if device['index'] == self.current_device_2), "デフォルト")
+            self.device_var_2.set(device_name_2)
+        else:
+            self.device_var_2.set("デフォルト")
+
+        # 第2スピーカー有効状態を復元
+        self.speaker_2_enabled_var.set(self.speaker_2_enabled)
 
     def _update_character_list(self) -> None:
         """キャラクターリストを更新"""
@@ -501,8 +573,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         if not choice or not self.current_character:
             return
 
-        try:
-            # 選択されたスタイルからIDを取得
+        try:            # 選択されたスタイルからIDを取得
             import re
             id_match: Optional[re.Match[str]] = re.search(
                 r'\(ID: (\d+)\)', choice)
@@ -511,8 +582,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
                 self.current_style = style_id
             else:
                 # 正規表現でIDが見つからない場合、キャラクターのスタイルから名前で検索
-                style_name: str = choice.split(
-                    " (ID:")[0] if " (ID:" in choice else choice
+                style_name: str = choice.split(" (ID:"
+                )[0] if " (ID:" in choice else choice
                 for style_info in self.current_character["styles"]: # Renamed style to style_info
                     if style_info["name"] == style_name:
                         self.current_style = style_info["id"]
@@ -522,6 +593,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
             # エラーが発生した場合でも、選択中のキャラクターの最初のスタイルを設定
             if self.current_character and self.current_character["styles"]:
                 self.current_style = self.current_character["styles"][0]["id"]
+
+    def on_host_change(self, choice: str) -> None:
+        """ホストが変更されたときの処理"""
+        self.current_host = choice
+        self._update_device_lists()
+
+    def on_host_2_change(self, choice: str) -> None:
+        """第2ホストが変更されたときの処理"""
+        self.current_host_2 = choice
+        self._update_device_lists()
 
     def on_device_change(self, choice: str) -> None:
         """デバイスが変更されたときの処理"""
@@ -678,15 +759,15 @@ class VoicevoxConnectorGUI(ctk.CTk):
                     output_device_index=self.current_device,
                     output_device_index_2=self.current_device_2,
                     speaker_2_enabled=self.speaker_2_enabled)
-                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
-                # ステータスの更新
+                self._play_audio_with_volume(audio_data, self.active_speaker_instance)                # ステータスの更新
                 if not self.clear_audio_requested: # Avoid overwriting clear message
                     self.after(0, lambda: self.status_var.set("再生完了"))
             else:
                 if not self.clear_audio_requested: # Avoid overwriting clear message
                     self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
 
-        except Exception as e:            # エラー表示
+        except Exception as e:
+            # エラー表示
             if not self.clear_audio_requested: # Avoid overwriting clear message
                 self.after(
                     0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
@@ -701,6 +782,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.current_device = config.get("device_index")
         self.current_device_2 = config.get("device_index_2") # Load second device
         self.speaker_2_enabled = config.get("speaker_2_enabled", False) # Load second speaker enabled state, default to False
+        self.current_host = config.get("host_name", "すべて") # Load host selection
+        self.current_host_2 = config.get("host_name_2", "すべて") # Load second host selection
         self.volume = config.get("volume", 0.8)  # デフォルトは0.8
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
 
@@ -711,6 +794,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
             "device_index": self.current_device,
             "device_index_2": self.current_device_2, # Save second device
             "speaker_2_enabled": self.speaker_2_enabled, # Save second speaker enabled state
+            "host_name": self.current_host, # Save host selection
+            "host_name_2": self.current_host_2, # Save second host selection
             "volume": self.volume,
             "ws_url": self.ws_url_var.get()
         }
