@@ -26,7 +26,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
-        
+
         # アプリケーションのバージョン情報
         self.app_version = "v1.1.1"
 
@@ -49,16 +49,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # ダークモードをデフォルトに設定
         ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")        # データ保存用の変数
+        ctk.set_default_color_theme("blue")
         self.speakers_data: List[Dict[str, Any]] = []
         self.audio_devices: List[Dict[str, Any]] = []
         self.current_character: Optional[Dict[str, Any]] = None
         self.current_style: Optional[int] = None
         self.current_device: Optional[int] = None
-        self.current_device_2: Optional[int] = None # For second speaker
-        self.speaker_2_enabled: bool = False      # For second speaker
-        self.current_host: Optional[str] = None   # For host selection
-        self.current_host_2: Optional[str] = None # For second speaker host
+        self.current_device_2: Optional[int] = None
+        self.speaker_2_enabled: bool = False
+        self.current_host: Optional[str] = None
+        self.current_host_2: Optional[str] = None
         self.volume: float = 0.8  # デフォルトの音量 (0.0-1.0)
         self.ws_url: str = "ws://127.0.0.1:2231"
 
@@ -66,10 +66,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.character_var = ctk.StringVar()
         self.style_var = ctk.StringVar()
         self.device_var = ctk.StringVar()
-        self.device_var_2 = ctk.StringVar() # For second speaker
-        self.speaker_2_enabled_var = ctk.BooleanVar(value=False) # For second speaker
-        self.host_var = ctk.StringVar()     # For host selection
-        self.host_var_2 = ctk.StringVar()   # For second speaker host
+        self.device_var_2 = ctk.StringVar()
+        self.speaker_2_enabled_var = ctk.BooleanVar(value=False)
+        self.host_var = ctk.StringVar()
+        self.host_var_2 = ctk.StringVar()
         self.volume_value_var: Optional[ctk.StringVar] = None
         self.ws_url_var: Optional[ctk.StringVar] = None
         self.ws_button_var: Optional[ctk.StringVar] = None
@@ -151,10 +151,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
         char_label.pack(anchor="w", padx=10, pady=5)
 
         # キャラクター選択のComboBox
-        # self.character_var: ctk.StringVar = ctk.StringVar() # Already initialized
         self.character_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
             left_frame,
-            variable=self.character_var, # Use the initialized variable
+            variable=self.character_var,
             values=["キャラクターを読み込み中..."],
             font=self.font_normal_14,
             dropdown_font=self.font_normal_14,
@@ -171,10 +170,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         style_label_left.pack(anchor="w", padx=10, pady=5)
 
-        # self.style_var: ctk.StringVar = ctk.StringVar() # Already initialized
         self.style_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
             left_frame,
-            variable=self.style_var, # Use the initialized variable
+            variable=self.style_var,
             values=["スタイルを読み込み中..."],
             font=self.font_normal_14,
             dropdown_font=self.font_normal_14,
@@ -218,7 +216,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
             state="readonly",
             command=self.on_device_change
         )
-        self.device_dropdown.pack(side="left", fill="x", expand=True)        # --- Add UI elements for second speaker ---
+        self.device_dropdown.pack(side="left", fill="x", expand=True)
         device_label_2: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
             text="第2出力デバイス",
@@ -259,12 +257,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.speaker_2_enable_checkbox: ctk.CTkCheckBox = ctk.CTkCheckBox(
             left_frame,
             text="第2スピーカーを有効にする",
-            variable=self.speaker_2_enabled_var, # Use the initialized variable
+            variable=self.speaker_2_enabled_var,
             font=self.font_normal_14,
-            command=self.on_speaker_2_enable_change # To be created
+            command=self.on_speaker_2_enable_change
         )
         self.speaker_2_enable_checkbox.pack(anchor="w", padx=10, pady=10)
-        # --- End of UI elements for second speaker ---
 
         # 音量調整スライダー
         volume_label: ctk.CTkLabel = ctk.CTkLabel(
@@ -275,10 +272,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
         volume_label.pack(anchor="w", padx=10, pady=5)
 
         # 音量値表示用のラベル
-        # self.volume_value_var: ctk.StringVar = ctk.StringVar(value=f"{int(self.volume * 100)}%") # Already initialized
         volume_value_label: ctk.CTkLabel = ctk.CTkLabel(
             left_frame,
-            textvariable=self.volume_value_var, # Use the initialized variable
+            textvariable=self.volume_value_var,
             font=self.font_normal_14,
             width=40
         )
@@ -301,25 +297,23 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         ws_label: ctk.CTkLabel = ctk.CTkLabel(
             ws_frame,
-            text="WebSocketサーバーURL:",
+            text="WebSocketサーバーURL",
             font=self.font_normal_14
         )
         ws_label.pack(anchor="w", padx=10, pady=5)
 
-        # self.ws_url_var: ctk.StringVar = ctk.StringVar(value=self.ws_url) # Already initialized
         self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
             ws_frame,
             width=300,
             font=self.font_normal_14,
-            textvariable=self.ws_url_var # Use the initialized variable
+            textvariable=self.ws_url_var
         )
         self.ws_entry.pack(fill="x", padx=10, pady=5)
 
         # WebSocket接続ボタン
-        # self.ws_button_var: ctk.StringVar = ctk.StringVar(value="WebSocket接続開始") # Already initialized
         self.ws_button: ctk.CTkButton = ctk.CTkButton(
             ws_frame,
-            textvariable=self.ws_button_var, # Use the initialized variable
+            textvariable=self.ws_button_var,
             font=self.font_normal_14,
             command=self.toggle_websocket_connection,
             fg_color="#1E5631",  # 接続時は緑色
@@ -328,10 +322,9 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_button.pack(pady=10)
 
         # WebSocket接続状態ラベル
-        # self.ws_status_var: ctk.StringVar = ctk.StringVar(value="WebSocket: 未接続") # Already initialized
         self.ws_status_label: ctk.CTkLabel = ctk.CTkLabel(
             ws_frame,
-            textvariable=self.ws_status_var, # Use the initialized variable
+            textvariable=self.ws_status_var,
             font=self.font_normal_14,
             text_color="gray"
         )
@@ -348,12 +341,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         test_label.pack(anchor="w", padx=10, pady=5)
 
-        # self.test_text_var: ctk.StringVar = ctk.StringVar(value="こんにちは、VOICEVOXです。") # Already initialized
         self.test_text_entry: ctk.CTkEntry = ctk.CTkEntry(
             test_frame,
             font=self.font_normal_14,
             width=300,
-            textvariable=self.test_text_var # Use the initialized variable
+            textvariable=self.test_text_var
         )
         self.test_text_entry.pack(fill="x", padx=10, pady=5)
 
@@ -364,22 +356,22 @@ class VoicevoxConnectorGUI(ctk.CTk):
             font=self.font_normal_14        )
         self.play_button.pack(pady=10)
 
-        # 再生停止とクリアボタン（テスト再生フレームの外、右フレーム直下に配置）
+        # 再生停止とクリアボタン
         self.stop_clear_button: ctk.CTkButton = ctk.CTkButton(
-            right_frame,  # right_frameに配置（test_frameの外
+            right_frame,
             text="再生停止とクリア",
-            command=self.on_stop_and_clear_audio, # To be implemented
+            command=self.on_stop_and_clear_audio,
             font=self.font_normal_14,
-            fg_color="#B22222", # Firebrick red
-            hover_color="#8B0000"  # Darker red
+            fg_color="#B22222",
+            hover_color="#8B0000"
         )
         self.stop_clear_button.pack(pady=10)
-        
+
         # ステータスバーとバージョン情報を配置するフレーム
         status_frame: ctk.CTkFrame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         status_frame.pack(fill="x", side="bottom", padx=10, pady=(5, 0))
-        
-        # ステータスバー（左寄せ）
+
+        # ステータスバー
         self.status_bar: ctk.CTkLabel = ctk.CTkLabel(
             status_frame,
             textvariable=self.status_var,
@@ -388,7 +380,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
             anchor="w"
         )
         self.status_bar.pack(fill="x", side="left", expand=True)
-        
+
         # バージョン情報ラベル（右寄せ）
         version_label: ctk.CTkLabel = ctk.CTkLabel(
             status_frame,
@@ -443,18 +435,18 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # ホストリストの作成
         host_names = list(set([device['host_name'] for device in self.audio_devices]))
         host_names = ["すべて"] + sorted(host_names)
-        
+
         # ホストコンボボックスの更新
         self.host_dropdown.configure(values=host_names)
         self.host_dropdown_2.configure(values=host_names)
-        
+
         # 初期ホスト選択
         if self.current_host is not None and self.current_host in host_names:
             self.host_var.set(self.current_host)
         else:
             self.host_var.set("すべて")
             self.current_host = "すべて"
-            
+
         if self.current_host_2 is not None and self.current_host_2 in host_names:
             self.host_var_2.set(self.current_host_2)
         else:
@@ -478,7 +470,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
             filtered_devices = self.audio_devices
         else:
             filtered_devices = [device for device in self.audio_devices if device['host_name'] == selected_host]
-        
+
         device_names: List[str] = ["デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices]
         self.device_dropdown.configure(values=device_names)
 
@@ -496,7 +488,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
             filtered_devices_2 = self.audio_devices
         else:
             filtered_devices_2 = [device for device in self.audio_devices if device['host_name'] == selected_host_2]
-        
+
         device_names_2: List[str] = ["デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2]
         self.device_dropdown_2.configure(values=device_names_2)
 
@@ -521,12 +513,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # 設定から選択されたキャラクターを復元
         if self.current_style is not None:
             for speaker in self.speakers_data:
-                for style_info in speaker["styles"]: # Renamed style to style_info
+                for style_info in speaker["styles"]:
                     if style_info["id"] == self.current_style:
                         self.character_var.set(speaker["name"])
                         self.select_character(speaker)
-                        # Found the character and style, break from inner loop
-                        return  # Exit early as character is found and processed
+                        return
         # デフォルト選択（最初のキャラクター）
         elif self.speakers_data:
             self.character_var.set(self.speakers_data[0]["name"])
@@ -555,7 +546,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # 設定から選択されたスタイルを復元するか、最初のスタイルを選択
         if self.current_style is not None:
             style_found: bool = False
-            for i, style_info in enumerate(speaker["styles"]): # Renamed style to style_info
+            for i, style_info in enumerate(speaker["styles"]):
                 if style_info["id"] == self.current_style:
                     self.style_var.set(style_values[i])
                     style_found = True
@@ -573,7 +564,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         if not choice or not self.current_character:
             return
 
-        try:            # 選択されたスタイルからIDを取得
+        # 選択されたスタイルからIDを取得
+        try:
             import re
             id_match: Optional[re.Match[str]] = re.search(
                 r'\(ID: (\d+)\)', choice)
@@ -584,7 +576,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
                 # 正規表現でIDが見つからない場合、キャラクターのスタイルから名前で検索
                 style_name: str = choice.split(" (ID:"
                 )[0] if " (ID:" in choice else choice
-                for style_info in self.current_character["styles"]: # Renamed style to style_info
+                for style_info in self.current_character["styles"]:
                     if style_info["name"] == style_name:
                         self.current_style = style_info["id"]
                         break
@@ -644,14 +636,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
     def _play_audio_with_volume(self, audio_data: bytes, speaker_instance: VoicevoxSpeaker) -> None:
         """音量を適用して音声を再生する"""
         if self.clear_audio_requested:
-            # This function might be entered just as clear is requested.
-            # The active speaker's request_stop would be called by the button handler.
             return
-
-        # It's assumed speaker_instance is valid if we reach here,
-        # as it's created and passed by the calling methods.
-        # However, a check might still be good for robustness if desired,
-        # but per current plan, the calling method handles active_speaker_instance lifecycle.
 
         try:
             import io
@@ -700,7 +685,6 @@ class VoicevoxConnectorGUI(ctk.CTk):
         except Exception as e:
             print(f"音声処理エラー: {str(e)}")
             # エラーが発生した場合は元のデータをそのまま再生
-            # Check if speaker_instance is not None before using it in except block
             if speaker_instance:
                 speaker_instance.play_bytes(audio_data)
 
@@ -734,18 +718,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.playback_lock.acquire()
         try:
             if self.clear_audio_requested:
-                self.clear_audio_requested = False # Reset flag
+                self.clear_audio_requested = False
                 self.status_var.set("オーディオクリアリクエスト受信済み。再生をキャンセルしました。")
-                # self.playback_lock.release() # This will be handled by finally
                 return
 
             self.active_speaker_instance = None # Reset before creation
 
             # 音声合成用クエリを作成
-            # Ensure current_style is not None before proceeding
             if self.current_style is None:
                 self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
-                return # playback_lock will be released by finally
+                return
             query: Dict[str, Any] = self.client.audio_query(
                 text, self.current_style)
 
@@ -759,16 +741,16 @@ class VoicevoxConnectorGUI(ctk.CTk):
                     output_device_index=self.current_device,
                     output_device_index_2=self.current_device_2,
                     speaker_2_enabled=self.speaker_2_enabled)
-                self._play_audio_with_volume(audio_data, self.active_speaker_instance)                # ステータスの更新
-                if not self.clear_audio_requested: # Avoid overwriting clear message
+                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
+                if not self.clear_audio_requested:
                     self.after(0, lambda: self.status_var.set("再生完了"))
             else:
-                if not self.clear_audio_requested: # Avoid overwriting clear message
+                if not self.clear_audio_requested:
                     self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
 
         except Exception as e:
             # エラー表示
-            if not self.clear_audio_requested: # Avoid overwriting clear message
+            if not self.clear_audio_requested:
                 self.after(
                     0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
         finally:
@@ -780,10 +762,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         config: Dict[str, Any] = Config.load()
         self.current_style = config.get("speaker_id")
         self.current_device = config.get("device_index")
-        self.current_device_2 = config.get("device_index_2") # Load second device
-        self.speaker_2_enabled = config.get("speaker_2_enabled", False) # Load second speaker enabled state, default to False
-        self.current_host = config.get("host_name", "すべて") # Load host selection
-        self.current_host_2 = config.get("host_name_2", "すべて") # Load second host selection
+        self.current_device_2 = config.get("device_index_2")
+        self.speaker_2_enabled = config.get("speaker_2_enabled", False)
+        self.current_host = config.get("host_name", "すべて")
+        self.current_host_2 = config.get("host_name_2", "すべて")
         self.volume = config.get("volume", 0.8)  # デフォルトは0.8
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
 
@@ -792,10 +774,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         config_data: Dict[str, Any] = {
             "speaker_id": self.current_style,
             "device_index": self.current_device,
-            "device_index_2": self.current_device_2, # Save second device
-            "speaker_2_enabled": self.speaker_2_enabled, # Save second speaker enabled state
-            "host_name": self.current_host, # Save host selection
-            "host_name_2": self.current_host_2, # Save second host selection
+            "device_index_2": self.current_device_2,
+            "speaker_2_enabled": self.speaker_2_enabled,
+            "host_name": self.current_host,
+            "host_name_2": self.current_host_2,
             "volume": self.volume,
             "ws_url": self.ws_url_var.get()
         }
@@ -885,7 +867,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         """WebSocket接続を停止する"""
         if self.ws:
             self.ws.close()
-            self.ws = None # Clear the WebSocket object after closing
+            self.ws = None
 
     def _update_ws_status_connected(self) -> None:
         """WebSocket接続状態のUIを更新（接続時）"""
@@ -910,12 +892,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.playback_lock.acquire()
         try:
             if self.clear_audio_requested:
-                self.clear_audio_requested = False # Reset flag
+                self.clear_audio_requested = False
                 self.status_var.set("オーディオクリアリクエスト受信済み。再生をキャンセルしました。")
-                # self.playback_lock.release() # This will be handled by finally
                 return
 
-            self.active_speaker_instance = None # Reset before creation
+            self.active_speaker_instance = None
 
             # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
             if not self.current_style and self.current_character and self.current_character["styles"]:
@@ -925,11 +906,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
                     self.after(0, lambda: self.status_var.set(
                         f"スタイルが自動選択されました: {style_name}"))
 
-            if self.current_style is None: # Explicit check for None
+            if self.current_style is None:
                 if not self.clear_audio_requested:
                     self.after(0, lambda: self.status_var.set(
                         "エラー: スタイルが選択されていません"))
-                return # playback_lock will be released by finally
+                return
 
             # 音声合成用クエリを作成
             query: Dict[str, Any] = self.client.audio_query(
@@ -961,20 +942,17 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
     def on_stop_and_clear_audio(self) -> None:
         self.status_var.set("停止リクエスト受信。オーディオをクリア・停止処理を開始します...")
-        self.update_idletasks() # Ensure status message updates immediately
+        self.update_idletasks()
 
         self.clear_audio_requested = True
 
         if self.active_speaker_instance:
-            # print("Stop/Clear: Attempting to stop active speaker instance.")
             try:
                 self.active_speaker_instance.request_stop()
                 self.status_var.set("アクティブな再生を停止しました。")
             except Exception as e:
-                # print(f"Stop/Clear: Error stopping active speaker: {e}")
                 self.status_var.set(f"スピーカー停止エラー: {e}")
         else:
-            # print("Stop/Clear: No active speaker instance to stop.")
             self.status_var.set("停止するアクティブな再生はありません。")
 
     def on_closing(self) -> None:

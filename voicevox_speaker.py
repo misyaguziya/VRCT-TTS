@@ -20,7 +20,7 @@ class VoicevoxSpeaker:
         VoicevoxSpeakerの初期化
 
         Args:
-            output_device_index (Optional[int], optional): 
+            output_device_index (Optional[int], optional):
                 出力デバイスのインデックス。Noneの場合はデフォルトデバイスを使用。
                 利用可能なデバイスは list_audio_devices() で確認できます。
             output_device_index_2 (Optional[int], optional):
@@ -35,7 +35,7 @@ class VoicevoxSpeaker:
         self.stop_requested: bool = False
         self.current_stream_1: Optional[pyaudio.Stream] = None
         self.current_stream_2: Optional[pyaudio.Stream] = None
-        self._stream_lock = threading.Lock()  # ストリームアクセス用のロック
+        self._stream_lock = threading.Lock()
 
     def __del__(self) -> None:
         """クリーンアップ処理"""
@@ -57,9 +57,8 @@ class VoicevoxSpeaker:
             for i in range(p.get_device_count()):
                 device_info = p.get_device_info_by_index(i)
                 # 出力チャンネル数が0より大きい場合、出力デバイスとして使用可能
-                if device_info['maxOutputChannels'] > 0:                    # デバイス名の文字化け対策
+                if device_info['maxOutputChannels'] > 0:
                     device_name = device_info['name']
-                    # original_name = device_name  # デバッグ用に元の名前を保存
 
                     if isinstance(device_name, str):
                         # 文字化けしたデバイス名を修正
@@ -75,27 +74,21 @@ class VoicevoxSpeaker:
                                     # bytes型に変換してからCP932でデコード
                                     device_bytes = device_name.encode('latin1')
                                     fixed_name = device_bytes.decode('cp932', errors='replace')
-                                    # if fixed_name != original_name:
-                                    #     logging.info(f"Device name fixed from CP932: '{original_name}' -> '{fixed_name}'")
                                 except (UnicodeDecodeError, UnicodeEncodeError):
                                     try:
                                         # UTF-8での変換を試行
                                         device_bytes = device_name.encode('latin1')
                                         fixed_name = device_bytes.decode('utf-8', errors='replace')
-                                        # if fixed_name != original_name:
-                                        #     logging.info(f"Device name fixed from UTF-8: '{original_name}' -> '{fixed_name}'")
                                     except (UnicodeDecodeError, UnicodeEncodeError):
                                         # 最後の手段として、不正な文字を置換
                                         fixed_name = ''.join(c if ord(c) >= 32 and ord(c) <= 126 or ord(c) >= 160 else '?' for c in device_name)
                                         if not fixed_name.strip():
                                             fixed_name = f"Audio Device {i}"
-                                        # logging.warning(f"Device name contains invalid characters: '{original_name}' -> '{fixed_name}'")
                         except Exception as e:
                             # すべて失敗した場合は安全な文字列に置換
                             fixed_name = f"Audio Device {i}"
-                            # logging.error(f"Failed to fix device name '{original_name}': {e}")
                     else:
-                        fixed_name = str(device_name)                    # ホスト情報を取得
+                        fixed_name = str(device_name)
                     host_api_index = device_info['hostApi']
                     host_info = p.get_host_api_info_by_index(host_api_index)
                     host_name = host_info['name']
@@ -297,7 +290,7 @@ if __name__ == "__main__":
     # 利用可能なデバイスを表示
     devices: List[Dict[str, Union[int, str, float]]] = VoicevoxSpeaker.list_audio_devices()
     print("利用可能なオーディオデバイス:")
-    for i, device_info in enumerate(devices):  # Renamed device to device_info to avoid conflict
+    for i, device_info in enumerate(devices):
         print(
             f"{i}. {device_info['name']} (index: {device_info['index']}, channels: {device_info['channels']})")
 
@@ -307,7 +300,7 @@ if __name__ == "__main__":
             output_device_index=int(devices[0]['index']))
 
         # VOICEVOXクライアントをインポート (同じディレクトリ内のvoicevox.pyから)
-        from voicevox import VOICEVOXClient, Dict, Any  # Added Any for vv_speakers
+        from voicevox import VOICEVOXClient, Dict, Any
 
         client: VOICEVOXClient = VOICEVOXClient()
 
