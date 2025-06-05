@@ -813,8 +813,53 @@ class VoicevoxConnectorGUI(ctk.CTk):
         def on_message(ws: websocket.WebSocketApp, message: str) -> None:
             try:
                 data: Dict[str, Any] = json.loads(message)
+                # 受信するメッセージの形式は以下
+                # {
+                #     "type":"SENT", or "type":"CHAT", or "type":"RECEIVED",
+                #     "src_languages":{
+                #         "1": {
+                #             "language": "Japanese",
+                #             "country": "Japan",
+                #             "enable": true
+                #         }
+                #     },
+                #     "dst_languages":{
+                #         "1": {
+                #             "language": "English",
+                #             "country": "United States",
+                #             "enable": true
+                #         },
+                #         "2": {
+                #             "language": "English",
+                #             "country": "United States",
+                #             "enable": false
+                #         },
+                #         "3": {
+                #             "language": "English",
+                #             "country": "United States",
+                #             "enable": false
+                #         }
+                #     },
+                #     "message": "こんにちは、世界！",
+                #     "translation": "Hello, world!",
+                #     "transliteration": "Konnichiwa, sekai!"
+                # }
+
+                # VOICEVOXは日本語のみ対応しているため、日本語の場合のみ処理
+                if data.get("type") not in ["SENT", "CHAT", "RECEIVED"]:
+                    return
+                # 受信メッセージのタイプがSENTまたはCHATの場合のみ処理
                 if data.get("type") == "SENT" or data.get("type") == "CHAT":
-                    received_message: str = data.get("message", "")
+                    if data.get("src_languages").get("1", {}).get("language") == "Japanese":
+                        received_message: str = data.get("message", "")
+                    elif (data.get("dst_languages").get("1").get("language") == "Japanese"):
+                        received_message: str = data.get("translation", "")[0]
+                    elif (data.get("dst_languages").get("2").get("language") == "Japanese"):
+                        received_message: str = data.get("translation", "")[1]
+                    elif (data.get("dst_languages").get("3").get("language") == "Japanese"):
+                        received_message: str = data.get("translation", "")[2]
+                    else:
+                        return
 
                     # エスケープされた日本語文字列をデコード
                     decoded_message: str = html.unescape(received_message)
