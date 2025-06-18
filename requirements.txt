@@ -1,6 +1,9 @@
 PyAudioWPatch == 0.2.12.7
 requests == 2.32.3
 websocket-client == 1.8.0
+websockets >= 10.0 # Or a specific version if compatibility is known, 10.0 is a common baseline for async/await server
+gTTS >= 2.3.0 # Common recent version
+playsound == 1.2.2
 pyinstaller == 6.13.0
 customtkinter == 5.2.2
 numpy == 2.2.6
