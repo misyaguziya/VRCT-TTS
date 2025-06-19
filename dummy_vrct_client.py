@@ -97,7 +97,26 @@ def on_open(ws):
             print(f"Client: Sent: {json.dumps(set_global_settings_req)}")
             time.sleep(0.5)
 
+            # 3b. TTS_SET_GLOBAL_SETTINGS to change active engine to VOICEVOX (if available on server)
+            set_active_engine_req = {
+                "command": "TTS_SET_GLOBAL_SETTINGS",
+                "request_id": "req03b_set_vv",
+                "settings": {"active_engine": "VOICEVOX"}
+            }
+            ws.send(json.dumps(set_active_engine_req))
+            logging.info(f"Sent: {json.dumps(set_active_engine_req)}")
+            print(f"Client: Sent: {json.dumps(set_active_engine_req)}")
+            time.sleep(0.5) # Give server time to switch
+
+            # 3c. TTS_GET_VOICES (again, should now reflect VOICEVOX if switch was successful and VV available)
+            get_voices_req_vv = {"command": "TTS_GET_VOICES", "request_id": "req03c_get_vv_voices"}
+            ws.send(json.dumps(get_voices_req_vv))
+            logging.info(f"Sent: {json.dumps(get_voices_req_vv)}")
+            print(f"Client: Sent: {json.dumps(get_voices_req_vv)}")
+            time.sleep(0.5)
+
             # 4. TTS_SYNTHESIZE (SENT type) - First time (cache miss expected)
+            # This will use VOICEVOX if the switch above was successful
             tts_synthesize_sent_1 = {
                 "command": "TTS_SYNTHESIZE", "request_id": "req04_sent_1",
                 "type": "SENT",
@@ -159,11 +178,29 @@ def on_open(ws):
             # or one of the earlier ones if sys.exit() is hit.
             # The current logic in on_message is to exit on *any* binary message.
             # For this test sequence, we want to receive multiple binary messages.
-            # So, the sys.exit(0) in on_message needs to be conditional or removed for full test.
-            # For now, it will exit after the first successful TTS_SYNTHESIZE.
-            # This needs refinement if we want to test sequence of multiple TTS_SYNTHESIZE.
-            # Let's assume for this test run, we are okay with it exiting after first audio.
-            # The server logs will show processing of subsequent messages if client hangs around.
+            # The on_message handler is set to exit after "req07_chat"'s audio.
+
+            # After TTS_STOP, maybe send one more GET_VOICES to see if engine reverted
+            time.sleep(0.5) # Ensure TTS_STOP is processed
+            set_active_engine_gtts_req = {
+                "command": "TTS_SET_GLOBAL_SETTINGS",
+                "request_id": "req09_set_gtts_again",
+                "settings": {"active_engine": "gTTS"}
+            }
+            ws.send(json.dumps(set_active_engine_gtts_req))
+            logging.info(f"Sent: {json.dumps(set_active_engine_gtts_req)}")
+            print(f"Client: Sent: {json.dumps(set_active_engine_gtts_req)}")
+            time.sleep(0.5)
+
+            get_voices_req_gtts_again = {"command": "TTS_GET_VOICES", "request_id": "req10_get_gtts_voices"}
+            ws.send(json.dumps(get_voices_req_gtts_again))
+            logging.info(f"Sent: {json.dumps(get_voices_req_gtts_again)}")
+            print(f"Client: Sent: {json.dumps(get_voices_req_gtts_again)}")
+            # The client will exit upon receiving audio for req07_chat.
+            # These last messages (req09, req10) might not get full response processing on client side
+            # if req07_chat audio arrives before they are fully handled by server and client.
+            # However, the server should log their receipt and processing.
+            time.sleep(2) # Allow some time for these last commands to be processed by server
 
         except Exception as e:
             logging.exception("Error in on_open run thread")
