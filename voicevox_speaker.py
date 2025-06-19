@@ -7,7 +7,7 @@ VOICEVOX Engine APIで生成した音声を特定のスピーカーデバイス�
 
 import io
 import wave
-import pyaudiowpatch as pyaudio
+import pyaudio
 import threading
 from typing import Optional, Dict, Union, List
 
@@ -301,32 +301,44 @@ if __name__ == "__main__":
         print(
             f"{i}. {device_info['name']} (index: {device_info['index']}, channels: {device_info['channels']})")
 
-    # デバイスを選択（ここでは最初のデバイスを使用）
-    if devices:
-        speaker: VoicevoxSpeaker = VoicevoxSpeaker(
-            output_device_index=int(devices[0]['index']))
+    # VOICEVOXクライアントをインポート (同じディレクトリ内のvoicevox.pyから)
+    from voicevox import VOICEVOXClient, Dict, Any # Added Any for vv_speakers
+    print("VOICEVOXClientを初期化します...")
+    client: VOICEVOXClient = VOICEVOXClient()
+    print("VOICEVOXClient初期化完了。")
 
-        # VOICEVOXクライアントをインポート (同じディレクトリ内のvoicevox.pyから)
-        from voicevox import VOICEVOXClient, Dict, Any  # Added Any for vv_speakers
-
-        client: VOICEVOXClient = VOICEVOXClient()
-
-        # スピーカーを取得
+    # スピーカーを取得
+    print("VOICEVOX Engineからスピーカー情報を取得します...")
+    try:
         vv_speakers: List[Dict[str, Any]] = client.speakers()
         if vv_speakers:
+            print(f"{len(vv_speakers)}人のスピーカー情報を取得しました。")
             speaker_id: int = vv_speakers[0]["styles"][0]["id"]
+            print(f"テスト用のスピーカーID: {speaker_id} ({vv_speakers[0]['name']} - {vv_speakers[0]['styles'][0]['name']})")
 
             # クエリを作成して音声合成
-            query: Dict[str, Any] = client.audio_query(
-                "こんにちは、テストです。", speaker_id)
+            test_text = "こんにちは、VOICEVOXのテストです。"
+            print(f"「{test_text}」の音声合成を試みます...")
+            query: Dict[str, Any] = client.audio_query(test_text, speaker_id)
+            print("音声クエリ作成成功。")
             audio_data: Optional[bytes] = client.synthesis(query, speaker_id)
 
-            # 特定のデバイスで再生
             if audio_data:
-                print(f"デバイス '{devices[0]['name']}' で再生します...")
-                speaker.play_bytes(audio_data)
-                print("再生完了")
+                print(f"音声合成成功。{len(audio_data)} バイトの音声データを生成しました。")
+                # デバイスがある場合のみ再生を試みる
+                if devices:
+                    speaker: VoicevoxSpeaker = VoicevoxSpeaker(output_device_index=int(devices[0]['index']))
+                    print(f"デバイス '{devices[0]['name']}' で再生します...")
+                    speaker.play_bytes(audio_data)
+                    print("再生完了")
+                else:
+                    print("オーディオデバイスがないため、再生はスキップします。")
             else:
                 print("音声データの生成に失敗しました。")
-    else:
-        print("利用可能なオーディオデバイスがありません。")
+        else:
+            print("VOICEVOX Engineからスピーカー情報を取得できませんでした。")
+    except Exception as e:
+        print(f"VOICEVOX Engineとの通信中にエラーが発生しました: {e}")
+
+    if not devices:
+        print("引き続き、利用可能なオーディオデバイスがないことを通知します。")

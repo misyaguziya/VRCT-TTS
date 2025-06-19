@@ -15,10 +15,25 @@ from typing import Dict, List, Optional, Any
 import websocket
 import json
 import html
+import logging # Added for explicit logging in main.py
+import tempfile # For temporary MP3 file
+import sys # For platform-specific playback
+import time # For delayed cleanup of temp file
+import os # For os.system, os.path, os.remove, os.startfile
+
 
 from voicevox import VOICEVOXClient
 from voicevox_speaker import VoicevoxSpeaker
 from config import Config
+from tts_manager import TTSManager # Added TTSManager import
+
+# Configure a logger for this module
+logger = logging.getLogger(__name__)
+# Basic config should ideally be set once at application entry point.
+# If other modules also call basicConfig, the first one takes precedence.
+# For robustness in case this module is run in a context where logging isn't configured:
+if not logging.getLogger().hasHandlers(): # Check if root logger has handlers
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
 class VoicevoxConnectorGUI(ctk.CTk):
@@ -83,6 +98,14 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_thread: Optional[threading.Thread] = None
         self.ws_connected: bool = False
 
+        # Logging/Monitoring Counters
+        self.ws_message_count = 0
+        self.sent_type_count = 0
+        self.received_type_count = 0
+        self.chat_type_count = 0
+        self.successful_synthesis_count = 0
+        self.failed_synthesis_count = 0
+
         # Playback lock
         self.playback_lock = threading.Lock()
         self.clear_audio_requested: bool = False
@@ -92,7 +115,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.load_config()
 
         # VOICEVOXクライアントの初期化
-        self.client: VOICEVOXClient = VOICEVOXClient()
+        self.client: VOICEVOXClient = VOICEVOXClient() # Retained for direct Voicevox use if any (e.g. test button)
+
+        # TTS Managerの初期化
+        self.tts_manager = TTSManager()
 
         # UIの作成
         self.create_ui()
@@ -829,23 +855,123 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # WebSocketイベントハンドラ
         def on_message(ws: websocket.WebSocketApp, message: str) -> None:
+            self.ws_message_count += 1
+            logger.debug(f"Raw WebSocket message received: {message}") # Log raw message
             try:
                 data: Dict[str, Any] = json.loads(message)
-                if data.get("type") == "SENT" or data.get("type") == "CHAT":
-                    received_message: str = data.get("message", "")
+                message_type = data.get("type") # Get type first for counter
 
-                    # エスケープされた日本語文字列をデコード
-                    decoded_message: str = html.unescape(received_message)
-                    self.after(0, lambda: self.status_var.set(
-                        f"受信: {decoded_message[:30]}..."))
+                if message_type == "SENT":
+                    self.sent_type_count += 1
+                elif message_type == "RECEIVED": # This was used in logic below, ensure consistency
+                    self.received_type_count += 1
+                elif message_type == "CHAT":
+                    self.chat_type_count += 1
 
-                    # 音声合成してスレッドで再生
-                    thread: threading.Thread = threading.Thread(
-                        target=self._synthesize_and_play, args=(decoded_message,), daemon=True)
-                    thread.start()
+                # Original logic for SENT or CHAT (now also RECEIVED)
+                if data.get("type") == "SENT" or data.get("type") == "CHAT" or data.get("type") == "RECEIVED":
+                    # message_type is already defined
+                    original_message = html.unescape(data.get("message", ""))
+                    translation = html.unescape(data.get("translation", ""))
+                    # Provide defaults for src_languages and dst_languages
+                    src_languages = data.get("src_languages", ["en"])
+                    dst_languages = data.get("dst_languages", ["en"])
+
+                    text_to_synthesize = None
+                    lang_to_synthesize_in = None
+                    tts_kwargs = {} # For engine-specific params like 'tld'
+
+                    if message_type == "SENT":
+                        text_to_synthesize = original_message
+                        lang_to_synthesize_in = src_languages[0] if src_languages else "en"
+                        # Example: if lang_to_synthesize_in == "en-GB", pass tld for gTTS
+                        if lang_to_synthesize_in.lower() == "en-gb":
+                            tts_kwargs['tld'] = 'co.uk'
+                        self.after(0, lambda: self.status_var.set(f"Synthesizing SENT: {text_to_synthesize[:20]}... in {lang_to_synthesize_in}"))
+
+                    elif message_type == "RECEIVED": # As per plan, this was CHAT, but RECEIVED makes more sense for translation
+                        text_to_synthesize = translation if translation else original_message
+                        lang_to_synthesize_in = dst_languages[0] if dst_languages else "en"
+                        if lang_to_synthesize_in.lower() == "en-gb": # Example for tld
+                            tts_kwargs['tld'] = 'co.uk'
+                        self.after(0, lambda: self.status_var.set(f"Synthesizing RECEIVED: {text_to_synthesize[:20]}... in {lang_to_synthesize_in}"))
+
+                    elif message_type == "CHAT": # Assuming CHAT uses original message and source language
+                        text_to_synthesize = original_message
+                        lang_to_synthesize_in = src_languages[0] if src_languages else "en"
+                        if lang_to_synthesize_in.lower() == "en-gb":
+                            tts_kwargs['tld'] = 'co.uk'
+                        self.after(0, lambda: self.status_var.set(f"Synthesizing CHAT: {text_to_synthesize[:20]}... in {lang_to_synthesize_in}"))
+
+                    if text_to_synthesize and lang_to_synthesize_in:
+                        # Use TTSManager to get audio_data
+                        # Pass tts_kwargs to the synthesize method
+                        audio_data = self.tts_manager.synthesize(
+                            text_to_synthesize,
+                            lang_to_synthesize_in,
+                            target_message_type=message_type,
+                            **tts_kwargs
+                        )
+
+                        if audio_data:
+                            # Play the audio_data using existing playback infrastructure
+                            # Note: VoicevoxSpeaker expects WAV. gTTS provides MP3.
+                            # This will be addressed in a later step. For now, attempt playback.
+                            # Create a new speaker instance for this playback to avoid state conflicts
+                            # if multiple playbacks overlap or if settings change.
+                            # This is a simplified approach; a proper audio manager might be better.
+                            temp_speaker_instance = VoicevoxSpeaker(
+                                output_device_index=self.current_device,
+                                output_device_index_2=self.current_device_2,
+                                speaker_2_enabled=self.speaker_2_enabled
+                            )
+
+                            # Determine audio format (heuristic)
+                            audio_format = "unknown"
+                            if audio_data.startswith(b'RIFF'):
+                                audio_format = "wav"
+                            elif audio_data.startswith(b'ID3') or audio_data.startswith(b'\xff\xfb') or \
+                                 audio_data.startswith(b'\xff\xf3') or audio_data.startswith(b'\xff\xf2'):
+                                audio_format = "mp3"
+                            else:
+                                # Basic fallback guess: if primary engine was gtts, it's likely mp3.
+                                primary_engine_name_for_guess = self.tts_manager.determine_synthesis_parameters(lang_to_synthesize_in)["engine_name"]
+                                if primary_engine_name_for_guess.lower() == "gtts":
+                                    audio_format = "mp3"
+                                    logger.info(f"Could not definitively determine audio format, but primary engine for lang '{lang_to_synthesize_in}' was {primary_engine_name_for_guess}, assuming MP3.")
+                                else:
+                                    logger.warning(f"Could not determine audio format for playback. Header: {audio_data[:10]!r}. Will attempt playback as raw bytes if VoicevoxSpeaker supports it, or fail.")
+
+                            logger.info(f"Detected audio format: {audio_format} for text '{text_to_synthesize[:20]}...'")
+
+                            # Use a thread for the new _handle_playback method
+                            playback_handler_thread = threading.Thread(
+                                target=self._handle_playback,
+                                args=(audio_data, audio_format),
+                                daemon=True
+                            )
+                            playback_handler_thread.start()
+                            # Status update is now part of _handle_playback or can be set here too
+                            # self.after(0, lambda: self.status_var.set(f"Playback initiated for: {text_to_synthesize[:20]}..."))
+                            self.successful_synthesis_count +=1
+                        else:
+                            logger.warning(f"WebSocket Handler: TTSManager returned no audio for text '{text_to_synthesize[:30]}' with lang '{lang_to_synthesize_in}'. All synthesis attempts failed.")
+                            self.after(0, lambda: self.status_var.set(f"Synthesis failed for: {text_to_synthesize[:20]}..."))
+                            self.failed_synthesis_count += 1
+                    else:
+                        logger.info(f"No text/lang determined for synthesis for message type: {message_type}. Original msg: {original_message[:30]}")
+                        self.after(0, lambda: self.status_var.set(f"No action taken for message type: {message_type}"))
+
+                # Periodic logging of counts
+                if self.ws_message_count % 10 == 0: # Log every 10 messages
+                    logger.info(f"WebSocket Message Stats: Total Received: {self.ws_message_count}, "
+                                f"SENT: {self.sent_type_count}, RECEIVED: {self.received_type_count}, CHAT: {self.chat_type_count}, "
+                                f"Successful TTS: {self.successful_synthesis_count}, Failed TTS: {self.failed_synthesis_count}")
+
             except json.JSONDecodeError:
                 # JSONデコードエラーは無視する（想定されるケース）
-                pass
+                self.after(0, lambda: self.status_var.set("Error: Received non-JSON WebSocket message."))
+                pass # Or log this as an info/debug message
             except Exception as e:
                 self.after(
                     0, lambda msg=f"メッセージ処理エラー: {str(e)}": self.status_var.set(msg))
@@ -905,59 +1031,137 @@ class VoicevoxConnectorGUI(ctk.CTk):
             fg_color="#1E5631", hover_color="#2E8B57")  # 緑色
         self.status_var.set("WebSocket接続を終了しました")
 
-    def _synthesize_and_play(self, text: str) -> None:
-        """テキストを音声合成して再生する"""
-        self.playback_lock.acquire()
-        try:
-            if self.clear_audio_requested:
-                self.clear_audio_requested = False # Reset flag
-                self.status_var.set("オーディオクリアリクエスト受信済み。再生をキャンセルしました。")
-                # self.playback_lock.release() # This will be handled by finally
-                return
+    # def _synthesize_and_play(self, text: str) -> None: # This method is now less relevant for WS messages
+    #     """テキストを音声合成して再生する (Primarily for test button or direct Voicevox)"""
+    #     # This method's direct invocation from WebSocket on_message is removed.
+    #     # It can still be used by the "Test Play" button which might directly use self.client (Voicevox).
+    #     # If Test Play button should also use TTSManager, this method needs further refactoring.
+    #     # For now, keeping its original Voicevox-specific logic for the test button.
+    #     self.playback_lock.acquire()
+    #     try:
+    #         if self.clear_audio_requested:
+    #             self.clear_audio_requested = False
+    #             self.status_var.set("オーディオクリアリクエスト受信済み。再生をキャンセルしました。")
+    #             return
 
-            self.active_speaker_instance = None # Reset before creation
+    #         self.active_speaker_instance = None
 
-            # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
-            if not self.current_style and self.current_character and self.current_character["styles"]:
-                self.current_style = self.current_character["styles"][0]["id"]
-                style_name: str = self.current_character["styles"][0]["name"]
-                if not self.clear_audio_requested:
-                    self.after(0, lambda: self.status_var.set(
-                        f"スタイルが自動選択されました: {style_name}"))
+    #         if not self.current_style and self.current_character and self.current_character["styles"]:
+    #             self.current_style = self.current_character["styles"][0]["id"]
+    #             style_name: str = self.current_character["styles"][0]["name"]
+    #             if not self.clear_audio_requested:
+    #                 self.after(0, lambda: self.status_var.set(
+    #                     f"スタイルが自動選択されました: {style_name}"))
 
-            if self.current_style is None: # Explicit check for None
-                if not self.clear_audio_requested:
-                    self.after(0, lambda: self.status_var.set(
-                        "エラー: スタイルが選択されていません"))
-                return # playback_lock will be released by finally
+    #         if self.current_style is None:
+    #             if not self.clear_audio_requested:
+    #                 self.after(0, lambda: self.status_var.set(
+    #                     "エラー: スタイルが選択されていません (VOICEVOX Test Play)"))
+    #             return
 
-            # 音声合成用クエリを作成
-            query: Dict[str, Any] = self.client.audio_query(
-                text, self.current_style)
+    #         query: Dict[str, Any] = self.client.audio_query(text, self.current_style)
+    #         audio_data: Optional[bytes] = self.client.synthesis(query, self.current_style)
 
-            # 音声を合成
-            audio_data: Optional[bytes] = self.client.synthesis(
-                query, self.current_style)
+    #         if audio_data:
+    #             self.active_speaker_instance = VoicevoxSpeaker(
+    #                 output_device_index=self.current_device,
+    #                 output_device_index_2=self.current_device_2,
+    #                 speaker_2_enabled=self.speaker_2_enabled)
+    #             self._play_audio_with_volume(audio_data, self.active_speaker_instance)
+    #         else:
+    #             if not self.clear_audio_requested:
+    #                 self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗 (VOICEVOX Test Play)"))
 
-            if audio_data:
-                # 音声を再生（音量適用）
-                self.active_speaker_instance = VoicevoxSpeaker(
+    #     except Exception as e:
+    #         if not self.clear_audio_requested:
+    #             self.after(
+    #                 0, lambda msg=f"音声合成エラー (VOICEVOX Test Play): {str(e)}": self.status_var.set(msg))
+    #     finally:
+    #         self.playback_lock.release()
+    #         self.active_speaker_instance = None
+
+    def _handle_playback(self, audio_data: bytes, audio_format: str) -> None:
+        """Handles playback of audio data based on its format."""
+        logger.info(f"Handling playback for format: {audio_format}")
+        self.after(0, lambda: self.status_var.set(f"Playing {audio_format.upper()} audio..."))
+
+        if audio_format == "wav":
+            logger.info("Playing WAV audio using VoicevoxSpeaker.")
+            try:
+                speaker_instance = VoicevoxSpeaker(
                     output_device_index=self.current_device,
                     output_device_index_2=self.current_device_2,
-                    speaker_2_enabled=self.speaker_2_enabled)
-                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
-            else:
-                if not self.clear_audio_requested:
-                    self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
+                    speaker_2_enabled=self.speaker_2_enabled
+                )
+                self._play_audio_with_volume(audio_data, speaker_instance) # This is blocking if its internal 'wait' is True
+                self.after(0, lambda: self.status_var.set("WAV playback finished."))
+                logger.info("WAV playback attempt finished.")
+            except Exception as e:
+                logger.error(f"Error during WAV playback with VoicevoxSpeaker: {e}", exc_info=True)
+                self.after(0, lambda: self.status_var.set("Error playing WAV."))
 
+        elif audio_format == "mp3":
+            logger.info("Attempting to play MP3 audio using OS-dependent player.")
+            tmp_mp3_filename = None
+            try:
+                # Use NamedTemporaryFile from 'tempfile' module
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
+                    tmpfile.write(audio_data)
+                    tmp_mp3_filename = tmpfile.name
 
-        except Exception as e:
-            if not self.clear_audio_requested:
-                self.after(
-                    0, lambda msg=f"音声合成エラー: {str(e)}": self.status_var.set(msg))
-        finally:
-            self.playback_lock.release()
-            self.active_speaker_instance = None
+                logger.info(f"Temporary MP3 file created: {tmp_mp3_filename}")
+
+                playback_command_logged = False
+                if sys.platform == "win32":
+                    os.startfile(tmp_mp3_filename) # Non-blocking
+                    logger.info(f"Windows: Initiated playback with os.startfile for {tmp_mp3_filename}.")
+                elif sys.platform == "darwin": # macOS
+                    os.system(f"afplay '{tmp_mp3_filename}'") # Blocking
+                    logger.info(f"macOS: Executed afplay for {tmp_mp3_filename}.")
+                    playback_command_logged = True
+                else: # Linux and other POSIX
+                    if os.system("command -v mpg123 >/dev/null 2>&1") == 0:
+                        os.system(f"mpg123 -q '{tmp_mp3_filename}'") # Blocking
+                        logger.info(f"Linux: Executed mpg123 for {tmp_mp3_filename}.")
+                        playback_command_logged = True
+                    elif os.system("command -v play >/dev/null 2>&1") == 0: # SoX play command
+                        os.system(f"play -q '{tmp_mp3_filename}'") # Blocking
+                        logger.info(f"Linux: Executed play (SoX) for {tmp_mp3_filename}.")
+                        playback_command_logged = True
+                    else: # Fallback to xdg-open (Linux) or open (macOS, though afplay should be preferred)
+                        logger.warning("No specific MP3 player (mpg123, play, afplay) found. Using system open.")
+                        if sys.platform == "darwin": os.system(f"open '{tmp_mp3_filename}'") # Non-blocking
+                        else: os.system(f"xdg-open '{tmp_mp3_filename}'") # Non-blocking
+                        logger.info(f"Fallback: Initiated playback with system open for {tmp_mp3_filename}.")
+
+                self.after(0, lambda: self.status_var.set("MP3 playback initiated."))
+                if playback_command_logged or sys.platform == "win32": # If a blocking call finished or windows non-blocking
+                    # For blocking calls, this means playback is done.
+                    # For os.startfile, it means it was launched.
+                    pass # logging already done for these cases
+
+                # Simple delay for non-blocking players to have a chance to play,
+                # before the file is potentially deleted. This is a pragmatic compromise.
+                # A more robust solution would involve process monitoring.
+                # For blocking players, this delay happens after they finish.
+                time.sleep(5) # Allow some time for playback
+
+            except Exception as e:
+                logger.error(f"Error in MP3 playback: {e}", exc_info=True)
+                self.after(0, lambda: self.status_var.set("Error playing MP3."))
+            finally:
+                if tmp_mp3_filename and os.path.exists(tmp_mp3_filename):
+                    try:
+                        # Add a bit more delay before deletion for non-blocking players
+                        if sys.platform == "win32" or not playback_command_logged : time.sleep(5)
+                        os.remove(tmp_mp3_filename)
+                        logger.info(f"Cleaned up temporary MP3 file: {tmp_mp3_filename}")
+                    except Exception as e_remove:
+                        logger.error(f"Error cleaning up temporary MP3 file {tmp_mp3_filename}: {e_remove}")
+        else:
+            logger.warning(f"Cannot play audio of unknown format: {audio_format}. Data starts with: {audio_data[:10]!r}")
+            self.after(0, lambda: self.status_var.set(f"Cannot play unknown format: {audio_format}"))
+
 
     def on_stop_and_clear_audio(self) -> None:
         self.status_var.set("停止リクエスト受信。オーディオをクリア・停止処理を開始します...")
