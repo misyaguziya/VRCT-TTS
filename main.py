@@ -512,24 +512,28 @@ class VoicevoxConnectorGUI(ctk.CTk):
         """非同期でデータを読み込む"""
         try:
             # オーディオデバイスの取得
-            self.audio_devices = VoicevoxSpeaker.list_audio_devices()
-
-            # VOICEVOX Engineからスピーカー情報を取得
-            self.speakers_data = self.client.speakers()
-
+            self.audio_devices = AudioPlayer.list_audio_devices()
             # UIの更新（メインスレッドで実行）
-            self.after(0, self._update_ui_with_data)
-
+            self.after(0, self._update_ui_with_audio_devices)
         except Exception as e:
             # エラー表示
             self.after(
-                0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
-            if "speakers_data" not in dir(self) or not self.speakers_data:
-                self.after(0, lambda: self.status_var.set(
-                    "VOICEVOX Engineに接続できません。起動しているか確認してください。"))
+                0, lambda msg=f"オーディオデバイス読込エラー: {str(e)}": self.status_var.set(msg))
 
-    def _update_ui_with_data(self) -> None:
-        """取得したデータでUIを更新する"""
+        try:
+            # VOICEVOX Engineからスピーカー情報を取得
+            self.speakers_data = self.client.speakers()
+            # UIの更新（メインスレッドで実行）
+            self.after(0, self._update_ui_with_voicevox_speakers)
+            self.after(0, lambda: self.status_var.set("VOICEVOXの読み込みが完了しました"))
+        except Exception:
+            # エラー表示
+            self.after(
+                0, lambda: self.status_var.set("VOICEVOX Engineに接続できません。"))
+            self.after(0, self._disable_voicevox_ui)
+
+    def _update_ui_with_audio_devices(self) -> None:
+        """取得したオーディオデバイスデータでUIを更新する"""
         # ホストリストの作成
         host_names = list(set([device['host_name'] for device in self.audio_devices]))
         host_names = ["すべて"] + sorted(host_names)
@@ -553,12 +557,31 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # デバイスリストを更新
         self._update_device_lists()
+        self.status_var.set("オーディオデバイスの読み込みが完了しました")
 
+    def _update_ui_with_voicevox_speakers(self) -> None:
+        """取得したVOICEVOXスピーカーデータでUIを更新する"""
         # キャラクターリストの更新
         self._update_character_list()
+        # VOICEVOX UIを有効化
+        self.character_dropdown.configure(state="readonly")
+        self.style_dropdown.configure(state="readonly")
+        self.play_button.configure(state="normal")
 
-        # ステータスの更新
-        self.status_var.set("データの読み込みが完了しました")
+    def _disable_voicevox_ui(self) -> None:
+        """VOICEVOX関連のUIを無効化する"""
+        self.character_dropdown.configure(values=["VOICEVOX利用不可"], state="disabled")
+        self.style_dropdown.configure(values=["VOICEVOX利用不可"], state="disabled")
+        self.character_var.set("VOICEVOX利用不可")
+        self.style_var.set("VOICEVOX利用不可")
+        self.play_button.configure(state="disabled")
+        # 翻訳前後のTTSエンジン選択でVOICEVOXが選択されていたらgTTSに変更する
+        if self.source_tts_engine_var.get() == "VOICEVOX":
+            self.source_tts_engine_var.set("gTTS")
+            self.on_source_tts_engine_change("gTTS")
+        if self.dest_tts_engine_var.get() == "VOICEVOX":
+            self.dest_tts_engine_var.set("gTTS")
+            self.on_dest_tts_engine_change("gTTS")
 
     def _update_device_lists(self) -> None:
         """選択されたホストに基づいてデバイスリストを更新"""
