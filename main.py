@@ -11,13 +11,15 @@ import sys
 import threading
 import ctypes
 import customtkinter as ctk
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 import websocket
 import json
 import html
 
 from voicevox import VOICEVOXClient
+from audio_player import AudioPlayer
 from voicevox_speaker import VoicevoxSpeaker
+from gTTS_speaker import gTTSSpeaker
 from config import Config
 
 
@@ -61,6 +63,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.current_host_2: Optional[str] = None
         self.volume: float = 0.8  # デフォルトの音量 (0.0-1.0)
         self.ws_url: str = "ws://127.0.0.1:2231"
+        self.gtts_lang: str = "en"
+        self.source_tts_engine: str = "VOICEVOX"
+        self.dest_tts_engine: str = "gTTS"
+        self.play_source: bool = False
+        self.play_dest: bool = True
 
         # UI Variables
         self.character_var = ctk.StringVar()
@@ -70,6 +77,11 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.speaker_2_enabled_var = ctk.BooleanVar(value=False)
         self.host_var = ctk.StringVar()
         self.host_var_2 = ctk.StringVar()
+        self.gtts_lang_var = ctk.StringVar()
+        self.source_tts_engine_var = ctk.StringVar()
+        self.dest_tts_engine_var = ctk.StringVar()
+        self.play_source_var = ctk.BooleanVar()
+        self.play_dest_var = ctk.BooleanVar()
         self.volume_value_var: Optional[ctk.StringVar] = None
         self.ws_url_var: Optional[ctk.StringVar] = None
         self.ws_button_var: Optional[ctk.StringVar] = None
@@ -86,7 +98,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # Playback lock
         self.playback_lock = threading.Lock()
         self.clear_audio_requested: bool = False
-        self.active_speaker_instance: Optional[VoicevoxSpeaker] = None
+        self.active_speaker_instance: Optional[Union[VoicevoxSpeaker, gTTSSpeaker]] = None
 
         # 設定を読み込む
         self.load_config()
@@ -129,67 +141,70 @@ class VoicevoxConnectorGUI(ctk.CTk):
         content_frame: ctk.CTkFrame = ctk.CTkFrame(self.main_frame)
         content_frame.pack(fill="both", padx=10, pady=10)
 
-        # 左右に分割
-        left_frame: ctk.CTkFrame = ctk.CTkFrame(content_frame)
-        left_frame.pack(side="left", fill="both",
-                        expand=True, padx=10, pady=10)
+        # 3列のレイアウトを作成
+        column1_frame = ctk.CTkFrame(content_frame)
+        column1_frame.pack(side="left", fill="y", expand=False, padx=5, pady=5)
 
-        # 左側: キャラクター選択
-        right_frame: ctk.CTkFrame = ctk.CTkFrame(content_frame)
-        right_frame.pack(
-            side="right",
-            fill="both",
-            expand=True,
-            padx=10,
-            pady=10
-        )
-        char_label: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame,
-            text="キャラクター選択",
+        column2_frame = ctk.CTkFrame(content_frame)
+        column2_frame.pack(side="left", fill="y", expand=False, padx=5, pady=5)
+
+        column3_frame = ctk.CTkFrame(content_frame)
+        column3_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+
+
+        # --- 1列目: WebSocketとデバイス設定 ---
+        ws_settings_label = ctk.CTkLabel(column1_frame, text="WebSocket & Devices", font=self.font_normal_14)
+        ws_settings_label.pack(anchor="w", padx=10, pady=10)
+
+        # WebSocket設定
+        ws_frame: ctk.CTkFrame = ctk.CTkFrame(column1_frame)
+        ws_frame.pack(fill="x", padx=10, pady=10)
+
+        ws_label: ctk.CTkLabel = ctk.CTkLabel(
+            ws_frame,
+            text="WebSocketサーバーURL",
             font=self.font_normal_14
         )
-        char_label.pack(anchor="w", padx=10, pady=5)
+        ws_label.pack(anchor="w", padx=10, pady=5)
 
-        # キャラクター選択のComboBox
-        self.character_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            left_frame,
-            variable=self.character_var,
-            values=["キャラクターを読み込み中..."],
+        self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
+            ws_frame,
+            width=200,
             font=self.font_normal_14,
-            dropdown_font=self.font_normal_14,
-            width=300,
-            state="readonly",
-            command=self.on_character_change
+            textvariable=self.ws_url_var
         )
-        self.character_dropdown.pack(fill="x", padx=10, pady=5)
+        self.ws_entry.pack(fill="x", padx=10, pady=5)
 
-        style_label_left: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame,
-            text="声のスタイル",
-            font=self.font_normal_14
-        )
-        style_label_left.pack(anchor="w", padx=10, pady=5)
-
-        self.style_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            left_frame,
-            variable=self.style_var,
-            values=["スタイルを読み込み中..."],
+        # WebSocket接続ボタン
+        self.ws_button: ctk.CTkButton = ctk.CTkButton(
+            ws_frame,
+            textvariable=self.ws_button_var,
             font=self.font_normal_14,
-            dropdown_font=self.font_normal_14,
-            width=300,
-            state="readonly",
-            command=self.on_style_change
+            command=self.toggle_websocket_connection,
+            fg_color="#1E5631",  # 接続時は緑色
+            hover_color="#2E8B57"
         )
-        self.style_dropdown.pack(fill="x", padx=10, pady=5)        # オーディオ出力デバイス選択
+        self.ws_button.pack(pady=10)
+
+        # WebSocket接続状態ラベル
+        self.ws_status_label: ctk.CTkLabel = ctk.CTkLabel(
+            ws_frame,
+            textvariable=self.ws_status_var,
+            font=self.font_normal_14,
+            text_color="gray"
+        )
+        self.ws_status_label.pack(pady=5)
+
+        # オーディオ出力デバイス選択
         device_label: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame,
+            column1_frame,
             text="出力デバイス",
             font=self.font_normal_14
         )
         device_label.pack(anchor="w", padx=10, pady=5)
 
         # デバイス選択用の水平フレーム
-        device_frame: ctk.CTkFrame = ctk.CTkFrame(left_frame)
+        device_frame: ctk.CTkFrame = ctk.CTkFrame(column1_frame)
         device_frame.pack(fill="x", padx=10, pady=5)
 
         # ホスト選択コンボボックス
@@ -218,14 +233,14 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         self.device_dropdown.pack(side="left", fill="x", expand=True)
         device_label_2: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame,
+            column1_frame,
             text="第2出力デバイス",
             font=self.font_normal_14
         )
         device_label_2.pack(anchor="w", padx=10, pady=5)
 
         # 第2デバイス選択用の水平フレーム
-        device_frame_2: ctk.CTkFrame = ctk.CTkFrame(left_frame)
+        device_frame_2: ctk.CTkFrame = ctk.CTkFrame(column1_frame)
         device_frame_2.pack(fill="x", padx=10, pady=5)
 
         # 第2ホスト選択コンボボックス
@@ -255,7 +270,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.device_dropdown_2.pack(side="left", fill="x", expand=True)
 
         self.speaker_2_enable_checkbox: ctk.CTkCheckBox = ctk.CTkCheckBox(
-            left_frame,
+            column1_frame,
             text="第2スピーカーを有効にする",
             variable=self.speaker_2_enabled_var,
             font=self.font_normal_14,
@@ -263,9 +278,108 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         self.speaker_2_enable_checkbox.pack(anchor="w", padx=10, pady=10)
 
+        # --- 2列目: VOICEVOX設定 ---
+        voicevox_settings_label = ctk.CTkLabel(column2_frame, text="VOICEVOX Settings", font=self.font_normal_14)
+        voicevox_settings_label.pack(anchor="w", padx=10, pady=10)
+
+        char_label: ctk.CTkLabel = ctk.CTkLabel(
+            column2_frame,
+            text="キャラクター選択",
+            font=self.font_normal_14
+        )
+        char_label.pack(anchor="w", padx=10, pady=5)
+
+        # キャラクター選択のComboBox
+        self.character_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
+            column2_frame,
+            variable=self.character_var,
+            values=["キャラクターを読み込み中..."],
+            font=self.font_normal_14,
+            dropdown_font=self.font_normal_14,
+            width=200,
+            state="readonly",
+            command=self.on_character_change
+        )
+        self.character_dropdown.pack(fill="x", padx=10, pady=5)
+
+        style_label_left: ctk.CTkLabel = ctk.CTkLabel(
+            column2_frame,
+            text="声のスタイル",
+            font=self.font_normal_14
+        )
+        style_label_left.pack(anchor="w", padx=10, pady=5)
+
+        self.style_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
+            column2_frame,
+            variable=self.style_var,
+            values=["スタイルを読み込み中..."],
+            font=self.font_normal_14,
+            dropdown_font=self.font_normal_14,
+            width=200,
+            state="readonly",
+            command=self.on_style_change
+        )
+        self.style_dropdown.pack(fill="x", padx=10, pady=5)
+
+        # --- 3列目: 再生設定とテスト ---
+        playback_settings_label = ctk.CTkLabel(column3_frame, text="Playback & Test", font=self.font_normal_14)
+        playback_settings_label.pack(anchor="w", padx=10, pady=10)
+
+        # --- 翻訳前(Source)のTTS設定 ---
+        source_tts_frame = ctk.CTkFrame(column3_frame)
+        source_tts_frame.pack(fill="x", padx=10, pady=10)
+
+        source_tts_label = ctk.CTkLabel(source_tts_frame, text="翻訳前 (Source) のTTS設定", font=self.font_normal_14)
+        source_tts_label.pack(anchor="w", padx=10, pady=5)
+
+        self.source_tts_engine_dropdown = ctk.CTkComboBox(
+            source_tts_frame,
+            variable=self.source_tts_engine_var,
+            values=["VOICEVOX", "gTTS"],
+            font=self.font_normal_14,
+            state="readonly",
+            command=self.on_source_tts_engine_change
+        )
+        self.source_tts_engine_dropdown.pack(fill="x", padx=10, pady=5)
+
+        self.play_source_checkbox = ctk.CTkCheckBox(
+            source_tts_frame,
+            text="翻訳前のテキストを再生する",
+            variable=self.play_source_var,
+            font=self.font_normal_14,
+            command=self.on_play_source_change
+        )
+        self.play_source_checkbox.pack(anchor="w", padx=10, pady=10)
+
+        # --- 翻訳後(Destination)のTTS設定 ---
+        dest_tts_frame = ctk.CTkFrame(column3_frame)
+        dest_tts_frame.pack(fill="x", padx=10, pady=10)
+
+        dest_tts_label = ctk.CTkLabel(dest_tts_frame, text="翻訳後 (Destination) のTTS設定", font=self.font_normal_14)
+        dest_tts_label.pack(anchor="w", padx=10, pady=5)
+
+        self.dest_tts_engine_dropdown = ctk.CTkComboBox(
+            dest_tts_frame,
+            variable=self.dest_tts_engine_var,
+            values=["gTTS", "VOICEVOX"],
+            font=self.font_normal_14,
+            state="readonly",
+            command=self.on_dest_tts_engine_change
+        )
+        self.dest_tts_engine_dropdown.pack(fill="x", padx=10, pady=5)
+
+        self.play_dest_checkbox = ctk.CTkCheckBox(
+            dest_tts_frame,
+            text="翻訳後のテキストを再生する",
+            variable=self.play_dest_var,
+            font=self.font_normal_14,
+            command=self.on_play_dest_change
+        )
+        self.play_dest_checkbox.pack(anchor="w", padx=10, pady=10)
+
         # 音量調整スライダー
         volume_label: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame,
+            column3_frame,
             text="音量",
             font=self.font_normal_14
         )
@@ -273,7 +387,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # 音量値表示用のラベル
         volume_value_label: ctk.CTkLabel = ctk.CTkLabel(
-            left_frame,
+            column3_frame,
             textvariable=self.volume_value_var,
             font=self.font_normal_14,
             width=40
@@ -282,7 +396,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # スライダーウィジェット
         self.volume_slider: ctk.CTkSlider = ctk.CTkSlider(
-            left_frame,
+            column3_frame,
             from_=0,
             to=1.0,
             number_of_steps=20,
@@ -291,47 +405,8 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.volume_slider.set(self.volume)  # 現在の音量を設定
         self.volume_slider.pack(fill="x", padx=10, pady=5)
 
-        # WebSocket設定
-        ws_frame: ctk.CTkFrame = ctk.CTkFrame(right_frame)
-        ws_frame.pack(fill="x", padx=10, pady=10)
-
-        ws_label: ctk.CTkLabel = ctk.CTkLabel(
-            ws_frame,
-            text="WebSocketサーバーURL",
-            font=self.font_normal_14
-        )
-        ws_label.pack(anchor="w", padx=10, pady=5)
-
-        self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
-            ws_frame,
-            width=300,
-            font=self.font_normal_14,
-            textvariable=self.ws_url_var
-        )
-        self.ws_entry.pack(fill="x", padx=10, pady=5)
-
-        # WebSocket接続ボタン
-        self.ws_button: ctk.CTkButton = ctk.CTkButton(
-            ws_frame,
-            textvariable=self.ws_button_var,
-            font=self.font_normal_14,
-            command=self.toggle_websocket_connection,
-            fg_color="#1E5631",  # 接続時は緑色
-            hover_color="#2E8B57"
-        )
-        self.ws_button.pack(pady=10)
-
-        # WebSocket接続状態ラベル
-        self.ws_status_label: ctk.CTkLabel = ctk.CTkLabel(
-            ws_frame,
-            textvariable=self.ws_status_var,
-            font=self.font_normal_14,
-            text_color="gray"
-        )
-        self.ws_status_label.pack(pady=5)
-
         # テスト再生セクション
-        test_frame: ctk.CTkFrame = ctk.CTkFrame(right_frame)
+        test_frame: ctk.CTkFrame = ctk.CTkFrame(column3_frame)
         test_frame.pack(fill="x", padx=10, pady=10)
 
         test_label: ctk.CTkLabel = ctk.CTkLabel(
@@ -349,16 +424,39 @@ class VoicevoxConnectorGUI(ctk.CTk):
         )
         self.test_text_entry.pack(fill="x", padx=10, pady=5)
 
+        # gTTS言語設定 (テスト再生用)
+        gtts_lang_label = ctk.CTkLabel(test_frame, text="gTTS Language for Test", font=self.font_normal_14)
+        gtts_lang_label.pack(anchor="w", padx=10, pady=5)
+
+        self.gtts_lang_dropdown = ctk.CTkComboBox(
+            test_frame,
+            variable=self.gtts_lang_var,
+            values=list(gTTSSpeaker.list_supported_languages().keys()),
+            font=self.font_normal_14,
+            state="readonly",
+            command=self.on_gtts_lang_change
+        )
+        self.gtts_lang_dropdown.pack(fill="x", padx=10, pady=5)
+
         self.play_button: ctk.CTkButton = ctk.CTkButton(
             test_frame,
-            text="テスト再生",
-            command=self.play_test_audio,
-            font=self.font_normal_14        )
-        self.play_button.pack(pady=10)
+            text="テスト再生 (VOICEVOX)",
+            command=lambda: self.play_test_audio("VOICEVOX"),
+            font=self.font_normal_14
+        )
+        self.play_button.pack(pady=5)
+
+        self.play_gtts_button: ctk.CTkButton = ctk.CTkButton(
+            test_frame,
+            text="テスト再生 (gTTS)",
+            command=lambda: self.play_test_audio("gTTS"),
+            font=self.font_normal_14
+        )
+        self.play_gtts_button.pack(pady=5)
 
         # 再生停止とクリアボタン
         self.stop_clear_button: ctk.CTkButton = ctk.CTkButton(
-            right_frame,
+            column3_frame,
             text="再生停止とクリア",
             command=self.on_stop_and_clear_audio,
             font=self.font_normal_14,
@@ -586,6 +684,26 @@ class VoicevoxConnectorGUI(ctk.CTk):
             if self.current_character and self.current_character["styles"]:
                 self.current_style = self.current_character["styles"][0]["id"]
 
+    def on_source_tts_engine_change(self, choice: str) -> None:
+        """翻訳前のTTSエンジンが変更されたときの処理"""
+        self.source_tts_engine = choice
+
+    def on_dest_tts_engine_change(self, choice: str) -> None:
+        """翻訳後のTTSエンジンが変更されたときの処理"""
+        self.dest_tts_engine = choice
+
+    def on_play_source_change(self) -> None:
+        """「翻訳前を再生」チェックボックスが変更されたときの処理"""
+        self.play_source = self.play_source_var.get()
+
+    def on_play_dest_change(self) -> None:
+        """「翻訳後を再生」チェックボックスが変更されたときの処理"""
+        self.play_dest = self.play_dest_var.get()
+
+    def on_gtts_lang_change(self, choice: str) -> None:
+        """gTTSの言語が変更されたときの処理"""
+        self.gtts_lang = choice
+
     def on_host_change(self, choice: str) -> None:
         """ホストが変更されたときの処理"""
         self.current_host = choice
@@ -633,7 +751,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # 音量表示を更新（パーセント表示）
         self.volume_value_var.set(f"{int(value * 100)}%")
 
-    def _play_audio_with_volume(self, audio_data: bytes, speaker_instance: VoicevoxSpeaker) -> None:
+    def _play_audio_with_volume(self, audio_data: bytes, speaker_instance: Union[VoicevoxSpeaker, gTTSSpeaker]) -> None:
         """音量を適用して音声を再生する"""
         if self.clear_audio_requested:
             return
@@ -686,18 +804,19 @@ class VoicevoxConnectorGUI(ctk.CTk):
             print(f"音声処理エラー: {str(e)}")
             # エラーが発生した場合は元のデータをそのまま再生
             if speaker_instance:
-                speaker_instance.play_bytes(audio_data)
+                speaker_instance.player.play_wav_bytes(audio_data)
 
-    def play_test_audio(self) -> None:
+    def play_test_audio(self, engine: str) -> None:
         """テスト音声を再生"""
-        # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
-        if not self.current_style and self.current_character and self.current_character["styles"]:
-            self.current_style = self.current_character["styles"][0]["id"]
-            style_name: str = self.current_character["styles"][0]["name"]
-            self.status_var.set(f"スタイルが自動選択されました: {style_name}")
-        elif not self.current_style:
-            self.status_var.set("エラー: スタイルが選択されていません")
-            return
+        if engine == "VOICEVOX":
+            # スタイルIDが設定されているか確認し、されていない場合は現在のキャラクターの最初のスタイルを選択
+            if not self.current_style and self.current_character and self.current_character["styles"]:
+                self.current_style = self.current_character["styles"][0]["id"]
+                style_name: str = self.current_character["styles"][0]["name"]
+                self.status_var.set(f"スタイルが自動選択されました: {style_name}")
+            elif not self.current_style:
+                self.status_var.set("エラー: スタイルが選択されていません")
+                return
 
         text: str = self.test_text_var.get()
         if not text:
@@ -710,10 +829,10 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
         # スレッドで非同期に合成と再生
         thread: threading.Thread = threading.Thread(
-            target=self._play_audio_async, args=(text,), daemon=True)
+            target=self._play_audio_async, args=(text, engine), daemon=True)
         thread.start()
 
-    def _play_audio_async(self, text: str) -> None:
+    def _play_audio_async(self, text: str, engine: str, lang: Optional[str] = None) -> None:
         """非同期で音声合成と再生を行う"""
         self.playback_lock.acquire()
         try:
@@ -723,30 +842,27 @@ class VoicevoxConnectorGUI(ctk.CTk):
                 return
 
             self.active_speaker_instance = None # Reset before creation
+            audio_player = AudioPlayer(
+                output_device_index=self.current_device,
+                output_device_index_2=self.current_device_2,
+                speaker_2_enabled=self.speaker_2_enabled
+            )
 
-            # 音声合成用クエリを作成
-            if self.current_style is None:
-                self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
-                return
-            query: Dict[str, Any] = self.client.audio_query(
-                text, self.current_style)
+            if engine == "VOICEVOX":
+                # 音声合成用クエリを作成
+                if self.current_style is None:
+                    self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
+                    return
+                speaker = VoicevoxSpeaker(player=audio_player, client=self.client)
+                speaker.speak(text, self.current_style, wait=True)
 
-            # 音声を合成
-            audio_data: Optional[bytes] = self.client.synthesis(
-                query, self.current_style)
+            elif engine == "gTTS":
+                gtts_lang = lang if lang else self.gtts_lang
+                speaker = gTTSSpeaker(player=audio_player, lang=gtts_lang)
+                speaker.speak(text, wait=True)
 
-            if audio_data:
-                # 音声を再生（音量適用）
-                self.active_speaker_instance = VoicevoxSpeaker(
-                    output_device_index=self.current_device,
-                    output_device_index_2=self.current_device_2,
-                    speaker_2_enabled=self.speaker_2_enabled)
-                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
-                if not self.clear_audio_requested:
-                    self.after(0, lambda: self.status_var.set("再生完了"))
-            else:
-                if not self.clear_audio_requested:
-                    self.after(0, lambda: self.status_var.set("エラー: 音声合成に失敗"))
+            if not self.clear_audio_requested:
+                self.after(0, lambda: self.status_var.set("再生完了"))
 
         except Exception as e:
             # エラー表示
@@ -768,9 +884,21 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.current_host_2 = config.get("host_name_2", "すべて")
         self.volume = config.get("volume", 0.8)  # デフォルトは0.8
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
+        self.gtts_lang = config.get("gtts_lang", "en")
+        self.source_tts_engine = config.get("source_tts_engine", "VOICEVOX")
+        self.dest_tts_engine = config.get("dest_tts_engine", "gTTS")
+        self.play_source = config.get("play_source", False)
+        self.play_dest = config.get("play_dest", True)
+
+        # UI変数の設定
+        self.gtts_lang_var.set(self.gtts_lang)
+        self.source_tts_engine_var.set(self.source_tts_engine)
+        self.dest_tts_engine_var.set(self.dest_tts_engine)
+        self.play_source_var.set(self.play_source)
+        self.play_dest_var.set(self.play_dest)
 
     def save_config(self) -> None:
-        """現在の設定を保存"""
+        """現在の設定を保存""" 
         config_data: Dict[str, Any] = {
             "speaker_id": self.current_style,
             "device_index": self.current_device,
@@ -779,7 +907,12 @@ class VoicevoxConnectorGUI(ctk.CTk):
             "host_name": self.current_host,
             "host_name_2": self.current_host_2,
             "volume": self.volume,
-            "ws_url": self.ws_url_var.get()
+            "ws_url": self.ws_url_var.get(),
+            "gtts_lang": self.gtts_lang,
+            "source_tts_engine": self.source_tts_engine,
+            "dest_tts_engine": self.dest_tts_engine,
+            "play_source": self.play_source,
+            "play_dest": self.play_dest,
         }
         Config.save(config_data)
         self.ws_url = self.ws_url_var.get()
@@ -851,24 +984,34 @@ class VoicevoxConnectorGUI(ctk.CTk):
                 # 受信メッセージのタイプがSENTまたはCHATの場合のみ処理
                 if data.get("type") == "SENT" or data.get("type") == "CHAT":
                     if data.get("src_languages").get("1", {}).get("language") == "Japanese":
-                        received_message: str = data.get("message", "")
-                    elif (data.get("dst_languages").get("1").get("language") == "Japanese"):
-                        received_message: str = data.get("translation", "")[0]
-                    elif (data.get("dst_languages").get("2").get("language") == "Japanese"):
-                        received_message: str = data.get("translation", "")[1]
-                    elif (data.get("dst_languages").get("3").get("language") == "Japanese"):
-                        received_message: str = data.get("translation", "")[2]
+                        source_message: str = data.get("message", "")
+                        dest_message: str = data.get("translation", "")[0] if data.get("translation") else ""
+                        dest_lang = data.get("dst_languages").get("1", {}).get("language", "en")
                     else:
-                        return
+                        source_message: str = data.get("message", "")
+                        dest_lang = "en" # デフォルトは英語
+                        if (data.get("dst_languages").get("1").get("language") == "Japanese"):
+                            dest_message: str = data.get("translation", "")[0]
+                            dest_lang = "ja"
+                        elif (data.get("dst_languages").get("2").get("language") == "Japanese"):
+                            dest_message: str = data.get("translation", "")[1]
+                            dest_lang = "ja"
+                        elif (data.get("dst_languages").get("3").get("language") == "Japanese"):
+                            dest_message: str = data.get("translation", "")[2]
+                            dest_lang = "ja"
+                        else:
+                            dest_message = ""
 
-                    # エスケープされた日本語文字列をデコード
-                    decoded_message: str = html.unescape(received_message)
+                    # エスケープされた文字列をデコード
+                    source_message = html.unescape(source_message)
+                    dest_message = html.unescape(dest_message)
+
                     self.after(0, lambda: self.status_var.set(
-                        f"受信: {decoded_message[:30]}..."))
+                        f"受信: {source_message[:30]}... / {dest_message[:30]}..."))
 
                     # 音声合成してスレッドで再生
                     thread: threading.Thread = threading.Thread(
-                        target=self._synthesize_and_play, args=(decoded_message,), daemon=True)
+                        target=self._synthesize_and_play_from_ws, args=(source_message, dest_message, dest_lang,), daemon=True)
                     thread.start()
             except json.JSONDecodeError:
                 # JSONデコードエラーは無視する（想定されるケース）
@@ -931,6 +1074,14 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_button.configure(
             fg_color="#1E5631", hover_color="#2E8B57")  # 緑色
         self.status_var.set("WebSocket接続を終了しました")
+
+    def _synthesize_and_play_from_ws(self, source_text: str, dest_text: str, dest_lang: str) -> None:
+        """WebSocketから受け取ったテキストを音声合成して再生する"""
+        if self.play_source and source_text:
+            self._play_audio_async(source_text, self.source_tts_engine)
+
+        if self.play_dest and dest_text:
+            self._play_audio_async(dest_text, self.dest_tts_engine, lang=dest_lang)
 
     def _synthesize_and_play(self, text: str) -> None:
         """テキストを音声合成して再生する"""
