@@ -37,7 +37,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         super().__init__()
 
         # アプリケーションのバージョン情報
-        self.app_version = "v1.1.1"
+        self.app_version = "v1.2.0"
 
         # アプリケーションのパスを取得
         if getattr(sys, 'frozen', False):
