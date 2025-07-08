@@ -40,13 +40,14 @@ class VOICEVOXClient:
 
     # クエリ作成関連のAPI
 
-    def audio_query(self, text: str, speaker: int, core_version: Optional[str] = None) -> Dict[str, Any]:
+    def audio_query(self, text: str, speaker: int, speed: float = 1.0, core_version: Optional[str] = None) -> Dict[str, Any]:
         """
         音声合成用のクエリを作成する
 
         Args:
             text (str): 合成するテキスト
             speaker (int): スピーカーID
+            speed (float, optional): 話速. Defaults to 1.0.
             core_version (Optional[str], optional): コアバージョン. Defaults to None.
 
         Returns:
@@ -61,7 +62,9 @@ class VOICEVOXClient:
 
         response = requests.post(f"{self.base_url}/audio_query", params=params)
         response.raise_for_status()
-        return response.json()
+        query = response.json()
+        query["speedScale"] = speed
+        return query
 
     def audio_query_from_preset(
         self, text: str, preset_id: int, core_version: Optional[str] = None
