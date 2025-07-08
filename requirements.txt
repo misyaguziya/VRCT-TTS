@@ -6,3 +6,4 @@ customtkinter == 5.2.2
 numpy == 2.2.6
 gTTS==2.5.1
 miniaudio==1.60
+cffi>=1.15.0
