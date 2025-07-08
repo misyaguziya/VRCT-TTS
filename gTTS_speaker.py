@@ -36,14 +36,16 @@ class gTTSSpeaker:
         """
         return lang.tts_langs()
 
-    def speak(self, text: str, lang: Optional[str] = None, wait: bool = True) -> None:
+    def get_audio_data(self, text: str, lang: Optional[str] = None) -> bytes:
         """
-        指定されたテキストを音声合成して再生する
+        指定されたテキストからWAV形式の音声データを生成して返す
 
         Args:
             text (str): 読み上げるテキスト
             lang (Optional[str], optional): 使用する言語。Noneの場合はインスタンスのデフォルト言語を使用。
-            wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
+
+        Returns:
+            bytes: WAV形式の音声データ
         """
         current_lang = lang if lang else self.lang
 
@@ -62,9 +64,29 @@ class gTTSSpeaker:
             wf.setframerate(decoded.sample_rate)
             wf.writeframes(decoded.samples)
         wav_fp.seek(0)
+        return wav_fp.read()
 
-        # WAVデータを再生
-        self.player.play_wav_bytes(wav_fp.read(), wait=wait)
+    def speak(self, text: str, lang: Optional[str] = None, wait: bool = True) -> None:
+        """
+        指定されたテキストを音声合成して再生する
+
+        Args:
+            text (str): 読み上げるテキスト
+            lang (Optional[str], optional): 使用する言語。Noneの場合はインスタンスのデフォルト言語を使用。
+            wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
+        """
+        audio_data = self.get_audio_data(text, lang)
+        self.play_bytes(audio_data, wait=wait)
+
+    def play_bytes(self, audio_data: bytes, wait: bool = True) -> None:
+        """
+        バイト形式の音声データを再生する
+
+        Args:
+            audio_data (bytes): 再生するWAV形式の音声データ
+            wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
+        """
+        self.player.play_wav_bytes(audio_data, wait=wait)
 
     def request_stop(self) -> None:
         """再生の停止をリクエストする"""

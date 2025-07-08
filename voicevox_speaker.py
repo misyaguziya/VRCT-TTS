@@ -24,6 +24,21 @@ class VoicevoxSpeaker:
         self.player = player
         self.client = client
 
+    def get_audio_data(self, text: str, speaker_id: int) -> bytes | None:
+        """
+        指定されたテキストをVOICEVOXで音声合成してWAVデータを返す
+
+        Args:
+            text (str): 読み上げるテキスト
+            speaker_id (int): VOICEVOXのキャラクターID
+
+        Returns:
+            bytes | None: 音声データ(WAV形式)
+        """
+        query = self.client.audio_query(text, speaker_id)
+        audio_data = self.client.synthesis(query, speaker_id)
+        return audio_data
+
     def speak(self, text: str, speaker_id: int, wait: bool = True) -> None:
         """
         指定されたテキストをVOICEVOXで音声合成して再生する
@@ -33,10 +48,19 @@ class VoicevoxSpeaker:
             speaker_id (int): VOICEVOXのキャラクターID
             wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
         """
-        query = self.client.audio_query(text, speaker_id)
-        audio_data = self.client.synthesis(query, speaker_id)
+        audio_data = self.get_audio_data(text, speaker_id)
         if audio_data:
-            self.player.play_wav_bytes(audio_data, wait=wait)
+            self.play_bytes(audio_data, wait=wait)
+
+    def play_bytes(self, audio_data: bytes, wait: bool = True) -> None:
+        """
+        WAV形式のバイトデータを再生する
+
+        Args:
+            audio_data (bytes): 再生するWAVデータ
+            wait (bool, optional): 再生が終了するまで待機するかどうか。デフォルトはTrue。
+        """
+        self.player.play_wav_bytes(audio_data, wait=wait)
 
     def request_stop(self) -> None:
         """再生の停止をリクエストする"""

@@ -905,23 +905,31 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                 speaker_2_enabled=self.speaker_2_enabled
             )
 
+            audio_data = None
+            speaker_instance = None
+
             if engine == "VOICEVOX":
-                # 音声合成用クエリを作成
                 if self.current_style is None:
                     self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
                     return
-                speaker = VoicevoxSpeaker(player=audio_player, client=self.client)
-                speaker.speak(text, self.current_style, wait=True)
+                
+                temp_speaker = VoicevoxSpeaker(player=audio_player, client=self.client)
+                audio_data = temp_speaker.get_audio_data(text, self.current_style)
+                speaker_instance = temp_speaker
 
             elif engine == "gTTS":
                 lang_code = lang
                 if lang_code is None:
-                    # Test playback case, lang is a language name from the dropdown
                     lang_name = self.gtts_lang
                     lang_code = self.gtts_supported_languages.get(lang_name, "en")
 
-                speaker = gTTSSpeaker(player=audio_player)
-                speaker.speak(text, lang=lang_code, wait=True)
+                temp_speaker = gTTSSpeaker(player=audio_player)
+                audio_data = temp_speaker.get_audio_data(text, lang=lang_code)
+                speaker_instance = temp_speaker
+
+            if audio_data and speaker_instance:
+                self.active_speaker_instance = speaker_instance
+                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
 
             if not self.clear_audio_requested:
                 self.after(0, lambda: self.status_var.set("再生完了"))
