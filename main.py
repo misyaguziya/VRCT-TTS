@@ -154,6 +154,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.volume_value_var = ctk.StringVar(value=f"{int(self.volume * 100)}%")
         self.speed_value_var = ctk.StringVar(value=f"x{self.speed:.2f}")
         self.ws_url_var = ctk.StringVar(value=self.ws_url)
+        self.ws_url_var.trace_add("write", lambda *args: self.save_config())
         self.ws_button_var = ctk.StringVar(value="WebSocket接続開始")
         self.ws_status_var = ctk.StringVar(value="WebSocket: 未接続")
         self.test_text_var = ctk.StringVar(value="こんにちは")
@@ -560,25 +561,6 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         )
         version_label.pack(side="right", padx=(10, 0))
 
-        # 保存ボタン
-        self.save_button: ctk.CTkButton = ctk.CTkButton(
-            self.main_frame,
-            text="設定を保存",
-            command=self.save_config,
-            font=self.font_normal_14
-        )
-        self.save_button.pack(pady=10)
-
-    def load_data(self) -> None:
-        """VOICEVOXのスピーカーデータとオーディオデバイスを読み込む"""
-        # ステータスの更新
-        self.status_var.set("データを読み込み中...")
-        self.update()
-
-        # スレッドで非同期に読み込む
-        thread = threading.Thread(target=self._load_data_async, daemon=True)
-        thread.start()
-
     def _load_data_async(self) -> None:
         """非同期でデータを読み込む"""
         try:
@@ -715,6 +697,16 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             self.character_var.set(self.speakers_data[0]["name"])
             self.select_character(self.speakers_data[0])
 
+    def load_data(self) -> None:
+        """VOICEVOXのスピーカーデータとオーディオデバイスを読み込む"""
+        # ステータスの更新
+        self.status_var.set("データを読み込み中...")
+        self.update()
+
+        # スレッドで非同期に読み込む
+        thread = threading.Thread(target=self._load_data_async, daemon=True)
+        thread.start()
+
     def on_character_change(self, choice: str) -> None:
         """キャラクターコンボボックスで選択されたときの処理"""
         if not choice or not self.speakers_data:
@@ -725,6 +717,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             (s for s in self.speakers_data if s["name"] == choice), None)
         if selected_speaker:
             self.select_character(selected_speaker)
+        self.save_config()
 
     def select_character(self, speaker: Dict[str, Any]) -> None:
         """キャラクターを選択したときの処理"""
@@ -750,6 +743,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         elif style_values:
             self.style_var.set(style_values[0])
             self.current_style = speaker["styles"][0]["id"]
+        self.save_config()
 
     def on_style_change(self, choice: str) -> None:
         """スタイルが変更されたときの処理"""
@@ -776,51 +770,62 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             # エラーが発生した場合でも、選択中のキャラクターの最初のスタイルを設定
             if self.current_character and self.current_character["styles"]:
                 self.current_style = self.current_character["styles"][0]["id"]
+        self.save_config()
 
     def on_source_tts_engine_change(self, choice: str) -> None:
         """翻訳前のTTSエンジンが変更されたときの処理"""
         self.source_tts_engine = choice
+        self.save_config()
 
     def on_dest_tts_engine_change(self, choice: str) -> None:
         """翻訳後のTTSエンジンが変更されたときの処理"""
         self.dest_tts_engine = choice
+        self.save_config()
 
     def on_play_source_change(self) -> None:
         """「翻訳前を再生」チェックボックスが変更されたときの処理"""
         self.play_source = self.play_source_var.get()
+        self.save_config()
 
     def on_play_dest_change(self) -> None:
         """「翻訳後を再生」チェックボックスが変更されたときの処理"""
         self.play_dest = self.play_dest_var.get()
+        self.save_config()
 
     def on_gtts_lang_change(self, choice: str) -> None:
         """gTTSの言語が変更されたときの処理"""
         self.gtts_lang = choice
+        self.save_config()
 
     def on_host_change(self, choice: str) -> None:
         """ホストが変更されたときの処理"""
         self.current_host = choice
         self._update_device_lists()
+        self.save_config()
 
     def on_host_2_change(self, choice: str) -> None:
         """第2ホストが変更されたときの処理"""
         self.current_host_2 = choice
         self._update_device_lists()
+        self.save_config()
 
     def on_device_change(self, choice: str) -> None:
         """デバイスが変更されたときの処理"""
         if not choice or choice == "デフォルト":
             self.current_device = None
+            self.save_config()
             return
 
         # 選択されたデバイスからインデックスを取得
         device_index: int = int(choice.split("インデックス: ")[1].rstrip(")"))
         self.current_device = device_index
+        self.save_config()
 
     def on_device_2_change(self, choice: str) -> None:
         """第2デバイスが変更されたときの処理"""
         if not choice or choice == "デフォルト":
             self.current_device_2 = None
+            self.save_config()
             return
         # 選択されたデバイスからインデックスを取得
         try:
@@ -830,12 +835,14 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             print(f"第2デバイス選択エラー: {str(e)}")
             self.current_device_2 = None
             self.device_var_2.set("デフォルト")
+        self.save_config()
 
 
     def on_speaker_2_enable_change(self) -> None:
         """第2スピーカー有効チェックボックスが変更されたときの処理"""
         if hasattr(self, 'speaker_2_enabled_var'):
             self.speaker_2_enabled = self.speaker_2_enabled_var.get()
+        self.save_config()
 
 
     def on_volume_change(self, value: float) -> None:
@@ -843,11 +850,13 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.volume = value
         # 音量表示を更新（パーセント表示）
         self.volume_value_var.set(f"{int(value * 100)}%")
+        self.save_config()
 
     def on_speed_change(self, value: float) -> None:
         """スライダーで再生速度が変更されたときの処理"""
         self.speed = value
         self.speed_value_var.set(f"x{value:.2f}")
+        self.save_config()
 
     def _process_audio(self, audio_data: bytes, speaker_instance: Union[VoicevoxSpeaker, gTTSSpeaker], engine: str) -> None:
         """音量と再生速度を適用して音声を再生する"""
