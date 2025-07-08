@@ -53,8 +53,8 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
         # アプリの設定
         self.title("VRCT-TTS")
-        self.geometry("750x770")
-        self.minsize(width=750, height=770)
+        self.geometry("750x800")
+        self.minsize(width=750, height=800)
 
         # ダークモードをデフォルトに設定
         ctk.set_appearance_mode("dark")
