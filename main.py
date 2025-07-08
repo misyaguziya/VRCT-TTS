@@ -1113,14 +1113,20 @@ class VoicevoxConnectorGUI(ctk.CTk):
         # 翻訳前の再生
         if self.play_source and source_text:
             source_engine = self.source_tts_engine
-            source_lang_code = "ja" if source_engine == "VOICEVOX" else self.gtts_supported_languages.get(source_lang_name, "en")
-            self._play_audio_async(source_text, source_engine, lang=source_lang_code)
+            source_lang_code = "ja" if source_engine == "VOICEVOX" else self.gtts_supported_languages.get(source_lang_name)
+            if source_lang_code:
+                self._play_audio_async(source_text, source_engine, lang=source_lang_code)
+            else:
+                self.after(0, lambda: self.status_var.set(f"gTTS非対応言語(Source): {source_lang_name}"))
 
         # 翻訳後の再生
         if self.play_dest and dest_text:
             dest_engine = self.dest_tts_engine
-            dest_lang_code = "ja" if dest_engine == "VOICEVOX" else self.gtts_supported_languages.get(dest_lang_name, "en")
-            self._play_audio_async(dest_text, dest_engine, lang=dest_lang_code)
+            dest_lang_code = "ja" if dest_engine == "VOICEVOX" else self.gtts_supported_languages.get(dest_lang_name)
+            if dest_lang_code:
+                self._play_audio_async(dest_text, dest_engine, lang=dest_lang_code)
+            else:
+                self.after(0, lambda: self.status_var.set(f"gTTS非対応言語(Dest): {dest_lang_name}"))
 
     def _synthesize_and_play(self, text: str) -> None:
         """テキストを音声合成して再生する"""
