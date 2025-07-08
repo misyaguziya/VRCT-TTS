@@ -1,4 +1,4 @@
-name: Build and Release VTVV-Connector
+name: Build and Release VRCT-TTS
 
 on:
   push:
@@ -27,13 +27,13 @@ jobs:
     - name: Create ZIP archive
       shell: powershell
       run: |
-        Compress-Archive -Path dist/VTVV-Connector/_internal, dist/VTVV-Connector/VTVV-Connector.exe -DestinationPath dist/VTVV-Connector.zip
+        Compress-Archive -Path dist/VRCT-TTS/_internal, dist/VRCT-TTS/VRCT-TTS.exe -DestinationPath dist/VRCT-TTS.zip
 
     - name: Archive application artifact
       uses: actions/upload-artifact@v4
       with:
-        name: VTVV-Connector-Windows
-        path: dist/VTVV-Connector.zip
+        name: VRCT-TTS-Windows
+        path: dist/VRCT-TTS.zip
 
   release:
     name: Create Release
@@ -45,13 +45,13 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: VTVV-Connector-Windows
-        path: VTVV-Connector-Windows # Download to this directory
+        name: VRCT-TTS-Windows
+        path: VRCT-TTS-Windows # Download to this directory
 
     - name: Create Release and Upload Asset
       uses: softprops/action-gh-release@v1
       with:
-        files: VTVV-Connector-Windows/VTVV-Connector.zip # Upload all files from the downloaded artifact
+        files: VRCT-TTS-Windows/VRCT-TTS.zip # Upload all files from the downloaded artifact
         tag_name: ${{ github.ref_name }} # Add this line
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
