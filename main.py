@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-VOICEVOX Connector GUI
-CustomTkinterを使用したVOICEVOXの設定GUI
+VRCT-TTS GUI
+CustomTkinterを使用したVRCT-TTSの設定GUI
 """
 
 import os
@@ -29,7 +29,7 @@ from vrct_languages import vrct_lang_dict
 from config import Config
 
 
-class VoicevoxConnectorGUI(ctk.CTk):
+class VRCTTTSConnectorGUI(ctk.CTk):
     """VRCT-TTSアプリケーション"""
 
     def __init__(self) -> None:
@@ -153,7 +153,7 @@ class VoicevoxConnectorGUI(ctk.CTk):
         self.ws_url_var = ctk.StringVar(value=self.ws_url)
         self.ws_button_var = ctk.StringVar(value="WebSocket接続開始")
         self.ws_status_var = ctk.StringVar(value="WebSocket: 未接続")
-        self.test_text_var = ctk.StringVar(value="こんにちは、VOICEVOXです。")
+        self.test_text_var = ctk.StringVar(value="こんにちは")
         self.status_var = ctk.StringVar(value="準備完了")
 
         # メインフレーム
@@ -1206,5 +1206,5 @@ class VoicevoxConnectorGUI(ctk.CTk):
 
 
 if __name__ == "__main__":
-    app = VoicevoxConnectorGUI()
+    app = VRCTTTSConnectorGUI()
     app.mainloop()
