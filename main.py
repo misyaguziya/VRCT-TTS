@@ -27,6 +27,7 @@ from voicevox_speaker import VoicevoxSpeaker
 from gTTS_speaker import gTTSSpeaker
 from vrct_languages import vrct_lang_dict
 from config import Config
+from language import texts
 
 
 class VRCTTTSConnectorGUI(ctk.CTk):
@@ -76,6 +77,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.dest_tts_engine: str = "gTTS"
         self.play_source: bool = False
         self.play_dest: bool = True
+        self.language: str = "English"
 
         # UI Variables
         self.character_var = ctk.StringVar()
@@ -90,6 +92,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.dest_tts_engine_var = ctk.StringVar()
         self.play_source_var = ctk.BooleanVar()
         self.play_dest_var = ctk.BooleanVar()
+        self.language_var = ctk.StringVar()
         self.volume_value_var: Optional[ctk.StringVar] = None
         self.speed_value_var: Optional[ctk.StringVar] = None
         self.ws_url_var: Optional[ctk.StringVar] = None
@@ -110,6 +113,9 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
         # 設定を読み込む
         self.load_config()
+
+        # UIテキスト
+        self.texts = texts
 
         # VOICEVOXクライアントの初期化
         self.client: VOICEVOXClient = VOICEVOXClient()
@@ -164,14 +170,6 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.main_frame: ctk.CTkFrame = ctk.CTkFrame(self)
         self.main_frame.pack(fill="both", padx=20, pady=20)
 
-        # タイトルラベル
-        # title_label: ctk.CTkLabel = ctk.CTkLabel(
-        #     self.main_frame,
-        #     text="VRCT-TTS",
-        #     font=ctk.CTkFont(family=self.fonts_name, size=20, weight="bold")
-        # )
-        # title_label.pack(pady=10)
-
         # コンテンツフレーム
         content_frame: ctk.CTkFrame = ctk.CTkFrame(self.main_frame)
         content_frame.pack(fill="both", padx=0, pady=0)
@@ -195,12 +193,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         ws_frame: ctk.CTkFrame = ctk.CTkFrame(left_column_frame)
         ws_frame.pack(fill="x", padx=10, pady=10)
 
-        ws_label: ctk.CTkLabel = ctk.CTkLabel(
+        self.ws_label: ctk.CTkLabel = ctk.CTkLabel(
             ws_frame,
             text="WebSocketサーバーURL",
             font=self.font_normal_14
         )
-        ws_label.pack(anchor="w", padx=10, pady=10)
+        self.ws_label.pack(anchor="w", padx=10, pady=10)
 
         self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
             ws_frame,
@@ -234,12 +232,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         devices_frame.pack(fill="x", padx=10, pady=10)
 
         # オーディオ出力デバイス選択
-        device_label: ctk.CTkLabel = ctk.CTkLabel(
+        self.device_label: ctk.CTkLabel = ctk.CTkLabel(
             devices_frame,
             text="出力デバイス",
             font=self.font_normal_14
         )
-        device_label.pack(anchor="w", padx=10, pady=5)
+        self.device_label.pack(anchor="w", padx=10, pady=5)
 
         # デバイス選択用の水平フレーム
         device_frame: ctk.CTkFrame = ctk.CTkFrame(devices_frame)
@@ -270,12 +268,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             command=self.on_device_change
         )
         self.device_dropdown.pack(side="left", fill="x", expand=True)
-        device_label_2: ctk.CTkLabel = ctk.CTkLabel(
+        self.device_label_2: ctk.CTkLabel = ctk.CTkLabel(
             devices_frame,
             text="第2出力デバイス",
             font=self.font_normal_14
         )
-        device_label_2.pack(anchor="w", padx=10, pady=5)
+        self.device_label_2.pack(anchor="w", padx=10, pady=5)
 
         # 第2デバイス選択用の水平フレーム
         device_frame_2: ctk.CTkFrame = ctk.CTkFrame(devices_frame)
@@ -320,15 +318,15 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         voicevox_frame = ctk.CTkFrame(left_column_frame)
         voicevox_frame.pack(fill="x", expand=False, padx=10, pady=10)
 
-        voicevox_settings_label = ctk.CTkLabel(voicevox_frame, text="VOICEVOX Settings", font=self.font_normal_14)
-        voicevox_settings_label.pack(anchor="w", padx=10, pady=10)
+        self.voicevox_settings_label = ctk.CTkLabel(voicevox_frame, text="VOICEVOX Settings", font=self.font_normal_14)
+        self.voicevox_settings_label.pack(anchor="w", padx=10, pady=10)
 
-        char_label: ctk.CTkLabel = ctk.CTkLabel(
+        self.char_label: ctk.CTkLabel = ctk.CTkLabel(
             voicevox_frame,
             text="キャラクター選択",
             font=self.font_normal_14
         )
-        char_label.pack(anchor="w", padx=10, pady=5)
+        self.char_label.pack(anchor="w", padx=10, pady=5)
 
         # キャラクター選択のComboBox
         self.character_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
@@ -343,12 +341,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         )
         self.character_dropdown.pack(fill="x", padx=10, pady=5)
 
-        style_label_left: ctk.CTkLabel = ctk.CTkLabel(
+        self.style_label_left: ctk.CTkLabel = ctk.CTkLabel(
             voicevox_frame,
             text="声のスタイル",
             font=self.font_normal_14
         )
-        style_label_left.pack(anchor="w", padx=10, pady=5)
+        self.style_label_left.pack(anchor="w", padx=10, pady=5)
 
         self.style_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
             voicevox_frame,
@@ -370,8 +368,8 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         tts_frame = ctk.CTkFrame(right_column_frame)
         tts_frame.pack(fill="x", padx=10, pady=10)
 
-        source_tts_label = ctk.CTkLabel(tts_frame, text="翻訳前 (Source) のTTS設定", font=self.font_normal_14)
-        source_tts_label.pack(anchor="w", padx=10, pady=10)
+        self.source_tts_label = ctk.CTkLabel(tts_frame, text="翻訳前 (Source) のTTS設定", font=self.font_normal_14)
+        self.source_tts_label.pack(anchor="w", padx=10, pady=10)
 
         self.source_tts_engine_dropdown = ctk.CTkComboBox(
             tts_frame,
@@ -393,8 +391,8 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.play_source_checkbox.pack(anchor="w", padx=10, pady=10)
 
         # --- 翻訳後(Destination)のTTS設定 ---
-        dest_tts_label = ctk.CTkLabel(tts_frame, text="翻訳後 (Destination) のTTS設定", font=self.font_normal_14)
-        dest_tts_label.pack(anchor="w", padx=10, pady=5)
+        self.dest_tts_label = ctk.CTkLabel(tts_frame, text="翻訳後 (Destination) のTTS設定", font=self.font_normal_14)
+        self.dest_tts_label.pack(anchor="w", padx=10, pady=5)
 
         self.dest_tts_engine_dropdown = ctk.CTkComboBox(
             tts_frame,
@@ -419,12 +417,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         volume_frame.pack(fill="x", padx=10, pady=10)
 
         # 音量調整スライダー
-        volume_label: ctk.CTkLabel = ctk.CTkLabel(
+        self.volume_label: ctk.CTkLabel = ctk.CTkLabel(
             volume_frame,
             text="音量",
             font=self.font_normal_14
         )
-        volume_label.pack(anchor="w", padx=10, pady=0)
+        self.volume_label.pack(anchor="w", padx=10, pady=0)
 
         # 音量値表示用のラベル
         volume_value_label: ctk.CTkLabel = ctk.CTkLabel(
@@ -447,12 +445,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.volume_slider.pack(fill="x", padx=10, pady=5)
 
         # 再生速度調整スライダー
-        speed_label: ctk.CTkLabel = ctk.CTkLabel(
+        self.speed_label: ctk.CTkLabel = ctk.CTkLabel(
             volume_frame,
             text="再生速度",
             font=self.font_normal_14
         )
-        speed_label.pack(anchor="w", padx=10, pady=0)
+        self.speed_label.pack(anchor="w", padx=10, pady=0)
 
         # 再生速度値表示用のラベル
         speed_value_label: ctk.CTkLabel = ctk.CTkLabel(
@@ -478,12 +476,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         test_frame: ctk.CTkFrame = ctk.CTkFrame(right_column_frame)
         test_frame.pack(fill="x", padx=10, pady=10)
 
-        test_label: ctk.CTkLabel = ctk.CTkLabel(
+        self.test_label: ctk.CTkLabel = ctk.CTkLabel(
             test_frame,
             text="再生",
             font=self.font_normal_14
         )
-        test_label.pack(anchor="w", padx=10, pady=5)
+        self.test_label.pack(anchor="w", padx=10, pady=5)
 
         self.test_text_entry: ctk.CTkEntry = ctk.CTkEntry(
             test_frame,
@@ -494,8 +492,8 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.test_text_entry.pack(fill="x", padx=10, pady=5)
 
         # gTTS言語設定 (テスト再生用)
-        gtts_lang_label = ctk.CTkLabel(test_frame, text="gTTS Language for Test", font=self.font_normal_14)
-        gtts_lang_label.pack(anchor="w", padx=10, pady=5)
+        self.gtts_lang_label = ctk.CTkLabel(test_frame, text="gTTS Language for Test", font=self.font_normal_14)
+        self.gtts_lang_label.pack(anchor="w", padx=10, pady=5)
 
         self.gtts_lang_dropdown = ctk.CTkComboBox(
             test_frame,
@@ -551,6 +549,20 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         )
         self.status_bar.pack(fill="x", side="left", expand=True)
 
+        # Language selection dropdown (moved to the bottom right)
+        self.language_dropdown = ctk.CTkComboBox(
+            status_frame,
+            variable=self.language_var,
+            values=["English", "日本語"],
+            font=self.font_normal_12,
+            dropdown_font=self.font_normal_12,
+            width=120,
+            state="readonly",
+            command=self.on_language_change
+        )
+        self.language_dropdown.pack(side="right", padx=(10, 0))
+        self.language_var.set(self.language)
+
         # バージョン情報ラベル（右寄せ）
         version_label: ctk.CTkLabel = ctk.CTkLabel(
             status_frame,
@@ -560,6 +572,8 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             anchor="e"
         )
         version_label.pack(side="right", padx=(10, 0))
+
+        self.update_ui_text()
 
     def _load_data_async(self) -> None:
         """非同期でデータを読み込む"""
@@ -571,25 +585,25 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         except Exception as e:
             # エラー表示
             self.after(
-                0, lambda msg=f"オーディオデバイス読込エラー: {str(e)}": self.status_var.set(msg))
+                0, lambda msg=f"{self.texts[self.language]['status_audio_device_error']}{str(e)}": self.status_var.set(msg))
 
         try:
             # VOICEVOX Engineからスピーカー情報を取得
             self.speakers_data = self.client.speakers()
             # UIの更新（メインスレッドで実行）
             self.after(0, self._update_ui_with_voicevox_speakers)
-            self.after(0, lambda: self.status_var.set("VOICEVOXの読み込みが完了しました"))
+            self.after(0, lambda: self.status_var.set(self.texts[self.language]["status_voicevox_loaded"]))
         except Exception:
             # エラー表示
             self.after(
-                0, lambda: self.status_var.set("VOICEVOX Engineに接続できません。"))
+                0, lambda: self.status_var.set(self.texts[self.language]["status_voicevox_connection_error"]))
             self.after(0, self._disable_voicevox_ui)
 
     def _update_ui_with_audio_devices(self) -> None:
         """取得したオーディオデバイスデータでUIを更新する"""
         # ホストリストの作成
         host_names = list(set([device['host_name'] for device in self.audio_devices]))
-        host_names = ["すべて"] + sorted(host_names)
+        host_names = [self.texts[self.language]["host_all"]] + sorted(host_names)
 
         # ホストコンボボックスの更新
         self.host_dropdown.configure(values=host_names)
@@ -599,18 +613,18 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         if self.current_host is not None and self.current_host in host_names:
             self.host_var.set(self.current_host)
         else:
-            self.host_var.set("すべて")
-            self.current_host = "すべて"
+            self.host_var.set(self.texts[self.language]["host_all"])
+            self.current_host = self.texts[self.language]["host_all"]
 
         if self.current_host_2 is not None and self.current_host_2 in host_names:
             self.host_var_2.set(self.current_host_2)
         else:
-            self.host_var_2.set("すべて")
-            self.current_host_2 = "すべて"
+            self.host_var_2.set(self.texts[self.language]["host_all"])
+            self.current_host_2 = self.texts[self.language]["host_all"]
 
         # デバイスリストを更新
         self._update_device_lists()
-        self.status_var.set("オーディオデバイスの読み込みが完了しました")
+        self.status_var.set(self.texts[self.language]["status_audio_device_loaded"])
 
     def _update_ui_with_voicevox_speakers(self) -> None:
         """取得したVOICEVOXスピーカーデータでUIを更新する"""
@@ -623,10 +637,10 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
     def _disable_voicevox_ui(self) -> None:
         """VOICEVOX関連のUIを無効化する"""
-        self.character_dropdown.configure(values=["VOICEVOX利用不可"], state="disabled")
-        self.style_dropdown.configure(values=["VOICEVOX利用不可"], state="disabled")
-        self.character_var.set("VOICEVOX利用不可")
-        self.style_var.set("VOICEVOX利用不可")
+        self.character_dropdown.configure(values=[self.texts[self.language]["status_voicevox_unavailable"]], state="disabled")
+        self.style_dropdown.configure(values=[self.texts[self.language]["status_voicevox_unavailable"]], state="disabled")
+        self.character_var.set(self.texts[self.language]["status_voicevox_unavailable"])
+        self.style_var.set(self.texts[self.language]["status_voicevox_unavailable"])
         self.play_button.configure(state="disabled")
         # 翻訳前後のTTSエンジン選択でVOICEVOXが選択されていたらgTTSに変更する
         if self.source_tts_engine_var.get() == "VOICEVOX":
@@ -640,39 +654,49 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         """選択されたホストに基づいてデバイスリストを更新"""
         # 第1デバイス用のデバイスリスト作成
         selected_host = self.host_var.get()
-        if selected_host == "すべて":
+        if selected_host == self.texts[self.language]["host_all"]:
             filtered_devices = self.audio_devices
         else:
             filtered_devices = [device for device in self.audio_devices if device['host_name'] == selected_host]
 
-        device_names: List[str] = ["デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices]
+        device_names: List[str] = [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices]
         self.device_dropdown.configure(values=device_names)
 
         # 設定からデバイス選択を復元
         if self.current_device is not None:
             device_name: str = next((
-                f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices if device['index'] == self.current_device), "デフォルト")
-            self.device_var.set(device_name)
-        else:
-            self.device_var.set("デフォルト")
+                f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices if device['index'] == self.current_device), "")
+            if device_name:
+                self.device_var.set(device_name)
+            elif device_names:
+                self.device_var.set(device_names[0])
+                self.on_device_change(device_names[0])
+        elif device_names:
+            self.device_var.set(device_names[0])
+            self.on_device_change(device_names[0])
 
         # 第2デバイス用のデバイスリスト作成
         selected_host_2 = self.host_var_2.get()
-        if selected_host_2 == "すべて":
+        if selected_host_2 == self.texts[self.language]["host_all"]:
             filtered_devices_2 = self.audio_devices
         else:
             filtered_devices_2 = [device for device in self.audio_devices if device['host_name'] == selected_host_2]
 
-        device_names_2: List[str] = ["デフォルト"] + [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2]
+        device_names_2: List[str] = [f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2]
         self.device_dropdown_2.configure(values=device_names_2)
 
         # 設定から第2デバイス選択を復元
         if self.current_device_2 is not None:
             device_name_2: str = next((
-                f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2 if device['index'] == self.current_device_2), "デフォルト")
-            self.device_var_2.set(device_name_2)
-        else:
-            self.device_var_2.set("デフォルト")
+                f"{device['name']} (インデックス: {device['index']})" for device in filtered_devices_2 if device['index'] == self.current_device_2), "")
+            if device_name_2:
+                self.device_var_2.set(device_name_2)
+            elif device_names_2:
+                self.device_var_2.set(device_names_2[0])
+                self.on_device_2_change(device_names_2[0])
+        elif device_names_2:
+            self.device_var_2.set(device_names_2[0])
+            self.on_device_2_change(device_names_2[0])
 
         # 第2スピーカー有効状態を復元
         self.speaker_2_enabled_var.set(self.speaker_2_enabled)
@@ -700,7 +724,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
     def load_data(self) -> None:
         """VOICEVOXのスピーカーデータとオーディオデバイスを読み込む"""
         # ステータスの更新
-        self.status_var.set("データを読み込み中...")
+        self.status_var.set(self.texts[self.language]["status_loading_data"])
         self.update()
 
         # スレッドで非同期に読み込む
@@ -811,19 +835,22 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
     def on_device_change(self, choice: str) -> None:
         """デバイスが変更されたときの処理"""
-        if not choice or choice == "デフォルト":
+        if not choice:
             self.current_device = None
             self.save_config()
             return
 
         # 選択されたデバイスからインデックスを取得
-        device_index: int = int(choice.split("インデックス: ")[1].rstrip(")"))
-        self.current_device = device_index
+        try:
+            device_index: int = int(choice.split("インデックス: ")[1].rstrip(")"))
+            self.current_device = device_index
+        except (IndexError, ValueError):
+            self.current_device = None
         self.save_config()
 
     def on_device_2_change(self, choice: str) -> None:
         """第2デバイスが変更されたときの処理"""
-        if not choice or choice == "デフォルト":
+        if not choice:
             self.current_device_2 = None
             self.save_config()
             return
@@ -834,7 +861,6 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         except (IndexError, ValueError) as e:
             print(f"第2デバイス選択エラー: {str(e)}")
             self.current_device_2 = None
-            self.device_var_2.set("デフォルト")
         self.save_config()
 
 
@@ -857,6 +883,57 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.speed = value
         self.speed_value_var.set(f"x{value:.2f}")
         self.save_config()
+
+    def on_language_change(self, choice: str) -> None:
+        """言語が変更されたときの処理"""
+        old_lang_all_text = self.texts[self.language]["host_all"]
+        self.language = choice
+        new_lang_all_text = self.texts[self.language]["host_all"]
+
+        # If the current host was "All", update it to the new language's "All"
+        if self.current_host == old_lang_all_text:
+            self.current_host = new_lang_all_text
+            self.host_var.set(new_lang_all_text)
+
+        if self.current_host_2 == old_lang_all_text:
+            self.current_host_2 = new_lang_all_text
+            self.host_var_2.set(new_lang_all_text)
+
+        self.save_config()
+        self.update_ui_text()
+
+    def update_ui_text(self) -> None:
+        """UIのテキストを現在の言語に更新する"""
+        lang = self.language
+        self.title(self.texts[lang]["app_title"])
+        self.ws_label.configure(text=self.texts[lang]["websocket_server_url"])
+        self.ws_button_var.set(self.texts[lang]["connect_websocket"] if not self.ws_connected else self.texts[lang]["disconnect_websocket"])
+        self.ws_status_var.set(self.texts[lang]["websocket_status_disconnected"])
+        self.device_label.configure(text=self.texts[lang]["output_device"])
+        self.device_label_2.configure(text=self.texts[lang]["secondary_output_device"])
+        self.speaker_2_enable_checkbox.configure(text=self.texts[lang]["enable_secondary_speaker"])
+        self.voicevox_settings_label.configure(text=self.texts[lang]["voicevox_settings"])
+        self.char_label.configure(text=self.texts[lang]["character_selection"])
+        self.style_label_left.configure(text=self.texts[lang]["voice_style"])
+        self.source_tts_label.configure(text=self.texts[lang]["source_tts_settings"])
+        self.play_source_checkbox.configure(text=self.texts[lang]["play_source_text"])
+        self.dest_tts_label.configure(text=self.texts[lang]["dest_tts_settings"])
+        self.play_dest_checkbox.configure(text=self.texts[lang]["play_dest_text"])
+        self.volume_label.configure(text=self.texts[lang]["volume"])
+        self.speed_label.configure(text=self.texts[lang]["speed"])
+        self.test_label.configure(text=self.texts[lang]["playback"])
+        self.gtts_lang_label.configure(text=self.texts[lang]["gtts_language_for_test"])
+        self.play_button.configure(text=self.texts[lang]["play_voicevox"])
+        self.play_gtts_button.configure(text=self.texts[lang]["play_gtts"])
+        self.stop_clear_button.configure(text=self.texts[lang]["stop_and_clear"])
+        self.status_var.set(self.texts[lang]["status_ready"])
+
+        # ホストリストの更新
+        host_names = [self.texts[self.language]["host_all"]] + sorted(list(set([device['host_name'] for device in self.audio_devices])))
+        self.host_dropdown.configure(values=host_names)
+        self.host_dropdown_2.configure(values=host_names)
+
+        self._update_device_lists()
 
     def _process_audio(self, audio_data: bytes, speaker_instance: Union[VoicevoxSpeaker, gTTSSpeaker], engine: str) -> None:
         """音量と再生速度を適用して音声を再生する"""
@@ -920,18 +997,18 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             if not self.current_style and self.current_character and self.current_character["styles"]:
                 self.current_style = self.current_character["styles"][0]["id"]
                 style_name: str = self.current_character["styles"][0]["name"]
-                self.status_var.set(f"スタイルが自動選択されました: {style_name}")
+                self.status_var.set(f"{self.texts[self.language]['status_style_auto_selected']}{style_name}")
             elif not self.current_style:
-                self.status_var.set("エラー: スタイルが選択されていません")
+                self.status_var.set(self.texts[self.language]["error_no_style_selected"])
                 return
 
         text: str = self.test_text_var.get()
         if not text:
-            self.status_var.set("エラー: テキストが入力されていません")
+            self.status_var.set(self.texts[self.language]["error_no_text_input"])
             return
 
         # ステータスの更新
-        self.status_var.set("音声を合成中...")
+        self.status_var.set(self.texts[self.language]["status_synthesizing"])
         self.update()
 
         # スレッドで非同期に合成と再生
@@ -960,7 +1037,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
             if engine == "VOICEVOX":
                 if self.current_style is None:
-                    self.after(0, lambda: self.status_var.set("エラー: スタイルが選択されていません"))
+                    self.after(0, lambda: self.status_var.set(self.texts[self.language]["error_no_style_selected"]))
                     return
                 
                 temp_speaker = VoicevoxSpeaker(player=audio_player, client=self.client)
@@ -982,13 +1059,13 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                 self._process_audio(audio_data, self.active_speaker_instance, engine)
 
             if not self.clear_audio_requested:
-                self.after(0, lambda: self.status_var.set("再生完了"))
+                self.after(0, lambda: self.status_var.set(self.texts[self.language]["status_playback_complete"]))
 
         except Exception as e:
             # エラー表示
             if not self.clear_audio_requested:
                 self.after(
-                    0, lambda msg=f"エラー: {str(e)}": self.status_var.set(msg))
+                    0, lambda msg=f"{self.texts[self.language]['error_synthesis']}{str(e)}": self.status_var.set(msg))
         finally:
             self.playback_lock.release()
             self.active_speaker_instance = None
@@ -1010,6 +1087,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.dest_tts_engine = config.get("dest_tts_engine", "gTTS")
         self.play_source = config.get("play_source", False)
         self.play_dest = config.get("play_dest", True)
+        self.language = config.get("language", "English")
 
         # UI変数の設定
         self.gtts_lang_var.set(self.gtts_lang)
@@ -1017,6 +1095,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.dest_tts_engine_var.set(self.dest_tts_engine)
         self.play_source_var.set(self.play_source)
         self.play_dest_var.set(self.play_dest)
+        self.language_var.set(self.language)
 
     def save_config(self) -> None:
         """現在の設定を保存""" 
@@ -1035,10 +1114,11 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             "dest_tts_engine": self.dest_tts_engine,
             "play_source": self.play_source,
             "play_dest": self.play_dest,
+            "language": self.language,
         }
         Config.save(config_data)
         self.ws_url = self.ws_url_var.get()
-        self.status_var.set("設定を保存しました")
+        self.status_var.set(self.texts[self.language]["config_saved"])
 
     def toggle_websocket_connection(self) -> None:
         """WebSocket接続の開始/停止を切り替える"""
@@ -1053,9 +1133,9 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         if not self.current_style and self.current_character and self.current_character["styles"]:
             self.current_style = self.current_character["styles"][0]["id"]
             style_name: str = self.current_character["styles"][0]["name"]
-            self.status_var.set(f"スタイルが自動選択されました: {style_name}")
+            self.status_var.set(f"{self.texts[self.language]['status_style_auto_selected']}{style_name}")
         elif not self.current_style:
-            self.status_var.set("エラー: スピーカースタイルが選択されていません")
+            self.status_var.set(self.texts[self.language]["error_no_style_selected"])
             return
 
         # URLを取得
@@ -1098,7 +1178,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                     dest_message = html.unescape(dest_message)
 
                     self.after(0, lambda: self.status_var.set(
-                        f"受信: {source_message[:30]}... / {dest_message[:30]}..."))
+                        f"{self.texts[self.language]['status_received_message']}{source_message[:30]}... / {dest_message[:30]}..."))
 
                     # 音声合成と再生
                     thread = threading.Thread(
@@ -1111,7 +1191,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             except json.JSONDecodeError:
                 pass  # 無視
             except Exception as e:
-                self.after(0, lambda msg=f"メッセージ処理エラー: {e}": self.status_var.set(msg))
+                self.after(0, lambda msg=f"{self.texts[self.language]['error_message_processing']}{e}": self.status_var.set(msg))
 
         def on_error(ws: websocket.WebSocketApp, error: Exception) -> None:
             self.after(0, lambda: self.status_var.set(
@@ -1127,7 +1207,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
         # WebSocketクライアントの起動
         try:
-            self.status_var.set(f"WebSocketサーバーに接続中: {self.ws_url}")
+            self.status_var.set(f"{self.texts[self.language]['status_ws_connecting']}{self.ws_url}")
             self.ws = websocket.WebSocketApp(
                 self.ws_url,
                 on_open=on_open,
@@ -1152,21 +1232,21 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
     def _update_ws_status_connected(self) -> None:
         """WebSocket接続状態のUIを更新（接続時）"""
-        self.ws_status_var.set("WebSocket: 接続済み")
+        self.ws_status_var.set(self.texts[self.language]["websocket_status_connected"])
         self.ws_status_label.configure(text_color="#4CAF50")  # 緑色
-        self.ws_button_var.set("WebSocket接続停止")
+        self.ws_button_var.set(self.texts[self.language]["disconnect_websocket"])
         self.ws_button.configure(
             fg_color="#8B0000", hover_color="#B22222")  # 赤色
-        self.status_var.set("WebSocketサーバーに接続しました")
+        self.status_var.set(self.texts[self.language]["status_ws_connected"])
 
     def _update_ws_status_disconnected(self) -> None:
         """WebSocket接続状態のUIを更新（切断時）"""
-        self.ws_status_var.set("WebSocket: 未接続")
+        self.ws_status_var.set(self.texts[self.language]["websocket_status_disconnected"])
         self.ws_status_label.configure(text_color="gray")
-        self.ws_button_var.set("WebSocket接続開始")
+        self.ws_button_var.set(self.texts[self.language]["connect_websocket"])
         self.ws_button.configure(
             fg_color="#1E5631", hover_color="#2E8B57")  # 緑色
-        self.status_var.set("WebSocket接続を終了しました")
+        self.status_var.set(self.texts[self.language]["status_ws_disconnected"])
 
     def _synthesize_and_play_from_ws(self, source_text: str, dest_text: str, source_lang_name: str, dest_lang_name: str) -> None:
         """WebSocketから受け取ったテキストを音声合成して再生する"""
@@ -1177,7 +1257,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             if source_lang_code:
                 self._play_audio_async(source_text, source_engine, lang=source_lang_code)
             else:
-                self.after(0, lambda: self.status_var.set(f"gTTS非対応言語(Source): {source_lang_name}"))
+                self.after(0, lambda: self.status_var.set(f"{self.texts[self.language]['error_gtts_unsupported_source']}{source_lang_name}"))
 
         # 翻訳後の再生
         if self.play_dest and dest_text:
@@ -1186,7 +1266,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             if dest_lang_code:
                 self._play_audio_async(dest_text, dest_engine, lang=dest_lang_code)
             else:
-                self.after(0, lambda: self.status_var.set(f"gTTS非対応言語(Dest): {dest_lang_name}"))
+                self.after(0, lambda: self.status_var.set(f"{self.texts[self.language]['error_gtts_unsupported_dest']}{dest_lang_name}"))
 
     def _synthesize_and_play(self, text: str) -> None:
         """テキストを音声合成して再生する"""
@@ -1205,12 +1285,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                 style_name: str = self.current_character["styles"][0]["name"]
                 if not self.clear_audio_requested:
                     self.after(0, lambda: self.status_var.set(
-                        f"スタイルが自動選択されました: {style_name}"))
+                        f"{self.texts[self.language]['status_style_auto_selected']}{style_name}"))
 
             if self.current_style is None:
                 if not self.clear_audio_requested:
                     self.after(0, lambda: self.status_var.set(
-                        "エラー: スタイルが選択されていません"))
+                        self.texts[self.language]["error_no_style_selected"]))
                 return
 
             # 音声合成用クエリを作成
@@ -1236,13 +1316,13 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         except Exception as e:
             if not self.clear_audio_requested:
                 self.after(
-                    0, lambda msg=f"音声合成エラー: {str(e)}": self.status_var.set(msg))
+                    0, lambda msg=f"{self.texts[self.language]['error_synthesis']}{str(e)}": self.status_var.set(msg))
         finally:
             self.playback_lock.release()
             self.active_speaker_instance = None
 
     def on_stop_and_clear_audio(self) -> None:
-        self.status_var.set("停止リクエスト受信。オーディオをクリア・停止処理を開始します...")
+        self.status_var.set(self.texts[self.language]["status_stop_request_received"])
         self.update_idletasks()
 
         self.clear_audio_requested = True
@@ -1250,11 +1330,11 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         if self.active_speaker_instance:
             try:
                 self.active_speaker_instance.request_stop()
-                self.status_var.set("アクティブな再生を停止しました。")
+                self.status_var.set(self.texts[self.language]["status_active_playback_stopped"])
             except Exception as e:
-                self.status_var.set(f"スピーカー停止エラー: {e}")
+                self.status_var.set(f"{self.texts[self.language]['error_speaker_stop']}{e}")
         else:
-            self.status_var.set("停止するアクティブな再生はありません。")
+            self.status_var.set(self.texts[self.language]["status_no_active_playback"])
 
     def on_closing(self) -> None:
         """アプリケーション終了時の処理"""
