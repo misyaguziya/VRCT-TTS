@@ -74,9 +74,10 @@ class gTTSSpeaker:
 if __name__ == "__main__":
     # 対応言語一覧を表示
     supported_langs = gTTSSpeaker.list_supported_languages()
+    print("対応言語数:", len(supported_langs))
     print("対応言語:")
-    # for lang_code, lang_name in supported_langs.items():
-    #     print(f"- {lang_code}: {lang_name}")
+    for lang_code, lang_name in supported_langs.items():
+        print(f"- {lang_code}: {lang_name}")
 
     # 利用可能なデバイスを表示
     devices = AudioPlayer.list_audio_devices()
@@ -99,5 +100,17 @@ if __name__ == "__main__":
         print(f"\nデバイス '{devices[0]['name']}' で英語のテスト音声を再生します...")
         speaker.speak("Hello, this is a test.", lang="en")
         print("再生完了")
+
+        # 非対応言語のテスト
+        print("\n--- 非対応言語のテスト ---")
+        try:
+            print("非対応言語 'Amharic (am)' での再生を試みます...")
+            # This should fail
+            speaker.speak("This is a test with an unsupported language.", lang="am")
+        except Exception as e:
+            print(f"エラーが発生しました: {e}")
+            print("非対応言語が正しく処理されているようです。")
+
     else:
         print("\n利用可能なオーディオデバイスがありません。")
+
