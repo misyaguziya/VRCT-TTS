@@ -69,6 +69,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.current_host: Optional[str] = None
         self.current_host_2: Optional[str] = None
         self.volume: float = 0.8  # デフォルトの音量 (0.0-1.0)
+        self.speed: float = 1.0 # デフォルトの再生速度 (0.5-2.0)
         self.ws_url: str = "ws://127.0.0.1:2231"
         self.gtts_lang: str = "English"
         self.source_tts_engine: str = "VOICEVOX"
@@ -90,6 +91,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.play_source_var = ctk.BooleanVar()
         self.play_dest_var = ctk.BooleanVar()
         self.volume_value_var: Optional[ctk.StringVar] = None
+        self.speed_value_var: Optional[ctk.StringVar] = None
         self.ws_url_var: Optional[ctk.StringVar] = None
         self.ws_button_var: Optional[ctk.StringVar] = None
         self.ws_status_var: Optional[ctk.StringVar] = None
@@ -150,6 +152,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         """UIコンポーネントの作成"""
         # Initialize other StringVars that were previously Optional
         self.volume_value_var = ctk.StringVar(value=f"{int(self.volume * 100)}%")
+        self.speed_value_var = ctk.StringVar(value=f"x{self.speed:.2f}")
         self.ws_url_var = ctk.StringVar(value=self.ws_url)
         self.ws_button_var = ctk.StringVar(value="WebSocket接続開始")
         self.ws_status_var = ctk.StringVar(value="WebSocket: 未接続")
@@ -441,6 +444,34 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         )
         self.volume_slider.set(self.volume)  # 現在の音量を設定
         self.volume_slider.pack(fill="x", padx=10, pady=5)
+
+        # 再生速度調整スライダー
+        speed_label: ctk.CTkLabel = ctk.CTkLabel(
+            volume_frame,
+            text="再生速度",
+            font=self.font_normal_14
+        )
+        speed_label.pack(anchor="w", padx=10, pady=0)
+
+        # 再生速度値表示用のラベル
+        speed_value_label: ctk.CTkLabel = ctk.CTkLabel(
+            volume_frame,
+            textvariable=self.speed_value_var,
+            font=self.font_normal_14,
+            width=40
+        )
+        speed_value_label.pack(anchor="e", padx=10)
+
+        # スライダーウィジェット
+        self.speed_slider: ctk.CTkSlider = ctk.CTkSlider(
+            volume_frame,
+            from_=0.5,
+            to=2.0,
+            number_of_steps=30,
+            command=self.on_speed_change
+        )
+        self.speed_slider.set(self.speed)  # 現在の再生速度を設定
+        self.speed_slider.pack(fill="x", padx=10, pady=5)
 
         # テスト再生セクション
         test_frame: ctk.CTkFrame = ctk.CTkFrame(right_column_frame)
@@ -813,8 +844,13 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         # 音量表示を更新（パーセント表示）
         self.volume_value_var.set(f"{int(value * 100)}%")
 
-    def _play_audio_with_volume(self, audio_data: bytes, speaker_instance: Union[VoicevoxSpeaker, gTTSSpeaker]) -> None:
-        """音量を適用して音声を再生する"""
+    def on_speed_change(self, value: float) -> None:
+        """スライダーで再生速度が変更されたときの処理"""
+        self.speed = value
+        self.speed_value_var.set(f"x{value:.2f}")
+
+    def _process_audio(self, audio_data: bytes, speaker_instance: Union[VoicevoxSpeaker, gTTSSpeaker], engine: str) -> None:
+        """音量と再生速度を適用して音声を再生する"""
         if self.clear_audio_requested:
             return
 
@@ -831,7 +867,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                     # すべてのフレームを読み込む
                     raw_data = wf.readframes(n_frames)
 
-            # 音声データをnumpy配列に変換
+            # 音量を適用
             if sample_width == 2:  # 16bit PCM
                 fmt = f"{n_frames * n_channels}h"
                 data = np.array(struct.unpack(fmt, raw_data))
@@ -839,23 +875,28 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                 data = (data * self.volume).astype(np.int16)
                 # データをバイトに戻す
                 modified_raw_data = struct.pack(fmt, *data)
-
-                # 新しいWAVファイルを作成
-                with io.BytesIO() as out_buffer:
-                    with wave.open(out_buffer, 'wb') as out_wf:
-                        out_wf.setnchannels(n_channels)
-                        out_wf.setsampwidth(sample_width)
-                        out_wf.setframerate(frame_rate)
-                        out_wf.writeframes(modified_raw_data)
-
-                    # バッファからバイトデータを取得
-                    modified_audio_data = out_buffer.getvalue()
-
-                # 修正したデータを再生
-                speaker_instance.play_bytes(modified_audio_data)
             else:
-                # サンプル幅が異なる場合はそのまま再生
-                speaker_instance.play_bytes(audio_data)
+                modified_raw_data = raw_data
+
+            # gTTSの場合、再生速度を適用 (フレームレートを変更)
+            if engine == "gTTS":
+                new_frame_rate = int(frame_rate * self.speed)
+            else:
+                new_frame_rate = frame_rate
+
+            # 新しいWAVファイルを作成
+            with io.BytesIO() as out_buffer:
+                with wave.open(out_buffer, 'wb') as out_wf:
+                    out_wf.setnchannels(n_channels)
+                    out_wf.setsampwidth(sample_width)
+                    out_wf.setframerate(new_frame_rate)
+                    out_wf.writeframes(modified_raw_data)
+
+                # バッファからバイトデータを取得
+                processed_audio_data = out_buffer.getvalue()
+
+            # 修正したデータを再生
+            speaker_instance.play_bytes(processed_audio_data)
 
         except Exception as e:
             print(f"音声処理エラー: {str(e)}")
@@ -914,7 +955,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                     return
                 
                 temp_speaker = VoicevoxSpeaker(player=audio_player, client=self.client)
-                audio_data = temp_speaker.get_audio_data(text, self.current_style)
+                audio_data = temp_speaker.get_audio_data(text, self.current_style, speed=self.speed)
                 speaker_instance = temp_speaker
 
             elif engine == "gTTS":
@@ -929,7 +970,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
             if audio_data and speaker_instance:
                 self.active_speaker_instance = speaker_instance
-                self._play_audio_with_volume(audio_data, self.active_speaker_instance)
+                self._process_audio(audio_data, self.active_speaker_instance, engine)
 
             if not self.clear_audio_requested:
                 self.after(0, lambda: self.status_var.set("再生完了"))
@@ -953,6 +994,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.current_host = config.get("host_name", "すべて")
         self.current_host_2 = config.get("host_name_2", "すべて")
         self.volume = config.get("volume", 0.8)  # デフォルトは0.8
+        self.speed = config.get("speed", 1.0) # デフォルトは1.0
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
         self.gtts_lang = config.get("gtts_lang", "English")
         self.source_tts_engine = config.get("source_tts_engine", "VOICEVOX")
@@ -977,6 +1019,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             "host_name": self.current_host,
             "host_name_2": self.current_host_2,
             "volume": self.volume,
+            "speed": self.speed,
             "ws_url": self.ws_url_var.get(),
             "gtts_lang": self.gtts_lang,
             "source_tts_engine": self.source_tts_engine,
