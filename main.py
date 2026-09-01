@@ -34,6 +34,26 @@ from language import texts
 class VRCTTTSConnectorGUI(ctk.CTk):
     """VRCT-TTSアプリケーション"""
 
+    # ------------------------------------------------------------------
+    # UIテーマトークン (モダンなフラットデザイン用の統一パレット / 余白)
+    # ------------------------------------------------------------------
+    COL_BG            = "#17181c"   # ウィンドウ背景
+    COL_CARD          = "#22242b"   # カード表面
+    COL_INPUT         = "#2c2f38"   # 入力欄 / コンボボックス表面
+    COL_BORDER        = "#3a3e49"   # 罫線
+    COL_TEXT          = "#e9eaee"   # 本文
+    COL_TEXT_MUTED    = "#9a9ca6"   # 補助テキスト
+    COL_ACCENT        = "#6c7cff"   # アクセント (インディゴ)
+    COL_ACCENT_HOVER  = "#5a67e6"
+    COL_SUCCESS       = "#3ba55d"   # 接続
+    COL_SUCCESS_HOVER = "#31894e"
+    COL_DANGER        = "#e5544b"   # 切断 / 停止
+    COL_DANGER_HOVER  = "#c5443c"
+    RADIUS            = 12          # カードの角丸
+    RADIUS_SM         = 8           # 入力欄 / ボタンの角丸
+    PAD               = 16          # カード内側の基準余白
+    GAP               = 10          # 要素間の基準間隔
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -52,15 +72,23 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.fonts_name = "Noto Sans JP"
         self.font_normal_14: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=14, weight="normal")
         self.font_normal_12: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=12, weight="normal")
+        # タイポグラフィスケール
+        self.font_title: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=20, weight="bold")
+        self.font_card_title: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=14, weight="bold")
+        self.font_label: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=12, weight="normal")
+        self.font_body: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=13, weight="normal")
+        self.font_button: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=13, weight="bold")
+        self.font_caption: ctk.CTkFont = ctk.CTkFont(family=self.fonts_name, size=11, weight="normal")
 
         # アプリの設定
         self.title("VRCT-TTS")
-        self.geometry("750x800")
-        self.minsize(width=750, height=800)
+        self.geometry("880x858")
+        self.minsize(width=840, height=740)
 
         # ダークモードをデフォルトに設定
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+        self.configure(fg_color=self.COL_BG)
         self.speakers_data: List[Dict[str, Any]] = []
         self.audio_devices: List[Dict[str, Any]] = []
         self.current_character: Optional[Dict[str, Any]] = None
@@ -157,6 +185,28 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
         return supported_languages
 
+    def _card(self, parent: Any) -> "ctk.CTkFrame":
+        """統一スタイルのカード (セクション) フレームを生成する"""
+        return ctk.CTkFrame(parent, corner_radius=self.RADIUS, fg_color=self.COL_CARD)
+
+    def _card_title(self, parent: Any, text: str) -> "ctk.CTkLabel":
+        """カード見出し (太字) を配置して返す"""
+        lbl = ctk.CTkLabel(
+            parent, text=text, font=self.font_card_title,
+            text_color=self.COL_TEXT, anchor="w",
+        )
+        lbl.pack(fill="x", padx=self.PAD, pady=(12, 6))
+        return lbl
+
+    def _sub_label(self, parent: Any, text: str, top: Optional[int] = None) -> "ctk.CTkLabel":
+        """入力欄の上に置く補助ラベル (小さめ・グレー) を配置して返す"""
+        lbl = ctk.CTkLabel(
+            parent, text=text, font=self.font_label,
+            text_color=self.COL_TEXT_MUTED, anchor="w",
+        )
+        lbl.pack(fill="x", padx=self.PAD, pady=(6 if top is None else top, 3))
+        return lbl
+
     def create_ui(self) -> None:
         """UIコンポーネントの作成"""
         # Initialize other StringVars that were previously Optional
@@ -171,428 +221,277 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.test_text_var = ctk.StringVar(value="こんにちは")
         self.status_var = ctk.StringVar(value="準備完了")
 
-        # メインフレーム
-        self.main_frame: ctk.CTkFrame = ctk.CTkFrame(self)
-        self.main_frame.pack(fill="both", padx=20, pady=20)
+        # ================= ルートレイアウト =================
+        outer = ctk.CTkFrame(self, fg_color="transparent")
+        outer.pack(fill="both", expand=True, padx=14, pady=14)
+        self.main_frame = outer
 
-        # コンテンツフレーム
-        content_frame: ctk.CTkFrame = ctk.CTkFrame(self.main_frame)
-        content_frame.pack(fill="both", padx=0, pady=0)
+        header = ctk.CTkFrame(outer, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(
+            header, text="VRCT-TTS", font=self.font_title,
+            text_color=self.COL_TEXT, anchor="w",
+        ).pack(side="left")
+        ctk.CTkLabel(
+            header, text="VRCT WebSocket → TTS", font=self.font_caption,
+            text_color=self.COL_TEXT_MUTED, anchor="w",
+        ).pack(side="left", padx=(10, 0), pady=(7, 0))
 
-        # 2列のレイアウトを作成
-        left_column_frame = ctk.CTkFrame(content_frame)
-        left_column_frame.pack(side="left", fill="y", expand=False, padx=10, pady=10)
+        # ステータスバー (中央コンテンツより先に bottom へ確保)
+        status_frame = ctk.CTkFrame(outer, fg_color="transparent")
+        status_frame.pack(fill="x", side="bottom", pady=(14, 0))
 
-        right_column_frame = ctk.CTkFrame(content_frame)
-        right_column_frame.pack(side="left", fill="both", expand=False, padx=10, pady=10)
+        # ================= 2カラムのコンテンツ =================
+        content_frame = ctk.CTkFrame(outer, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True)
+        content_frame.grid_columnconfigure(0, weight=1, uniform="cols")
+        content_frame.grid_columnconfigure(1, weight=1, uniform="cols")
+        content_frame.grid_rowconfigure(0, weight=1)
 
+        left_column_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        left_column_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        right_column_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        right_column_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
 
-        # # --- 1列目 上部: WebSocketとデバイス設定 ---
-        # ws_device_frame = ctk.CTkFrame(left_column_frame)
-        # ws_device_frame.pack(fill="x", expand=False, padx=10, pady=10)
-
-        # ws_settings_label = ctk.CTkLabel(ws_device_frame, text="WebSocket & Devices", font=self.font_normal_14)
-        # ws_settings_label.pack(anchor="w", padx=10, pady=10)
-
-        # WebSocket設定
-        ws_frame: ctk.CTkFrame = ctk.CTkFrame(left_column_frame)
-        ws_frame.pack(fill="x", padx=10, pady=10)
-
-        self.ws_label: ctk.CTkLabel = ctk.CTkLabel(
-            ws_frame,
-            text="WebSocketサーバーURL",
-            font=self.font_normal_14
+        # 共通ウィジェットスタイル
+        self._entry_kw = dict(
+            height=34, corner_radius=self.RADIUS_SM, border_width=1,
+            border_color=self.COL_BORDER, fg_color=self.COL_INPUT, font=self.font_body,
         )
-        self.ws_label.pack(anchor="w", padx=10, pady=10)
-
-        self.ws_entry: ctk.CTkEntry = ctk.CTkEntry(
-            ws_frame,
-            width=200,
-            font=self.font_normal_14,
-            textvariable=self.ws_url_var
+        self._combo_kw = dict(
+            height=34, corner_radius=self.RADIUS_SM, border_width=1,
+            border_color=self.COL_BORDER, fg_color=self.COL_INPUT,
+            button_color=self.COL_INPUT, button_hover_color=self.COL_BORDER,
+            dropdown_fg_color=self.COL_CARD, dropdown_hover_color=self.COL_ACCENT,
+            dropdown_text_color=self.COL_TEXT, text_color=self.COL_TEXT,
+            font=self.font_body, dropdown_font=self.font_body, state="readonly",
         )
-        self.ws_entry.pack(fill="x", padx=10, pady=10)
-
-        # WebSocketトークン設定 (VRCT側のトークン認証に対応)
-        self.ws_token_label: ctk.CTkLabel = ctk.CTkLabel(
-            ws_frame,
-            text="WebSocketトークン（任意）",
-            font=self.font_normal_14
+        self._btn_kw = dict(
+            height=36, corner_radius=self.RADIUS_SM, font=self.font_button,
+            fg_color=self.COL_ACCENT, hover_color=self.COL_ACCENT_HOVER,
         )
-        self.ws_token_label.pack(anchor="w", padx=10, pady=(0, 5))
-
-        self.ws_token_entry: ctk.CTkEntry = ctk.CTkEntry(
-            ws_frame,
-            width=200,
-            font=self.font_normal_14,
-            textvariable=self.ws_token_var
+        self._check_kw = dict(
+            font=self.font_body, fg_color=self.COL_ACCENT, hover_color=self.COL_ACCENT_HOVER,
+            checkbox_width=20, checkbox_height=20, corner_radius=5,
+            border_width=2, border_color=self.COL_BORDER,
         )
-        self.ws_token_entry.pack(fill="x", padx=10, pady=(0, 10))
-
-        # WebSocket接続ボタン
-        self.ws_button: ctk.CTkButton = ctk.CTkButton(
-            ws_frame,
-            textvariable=self.ws_button_var,
-            font=self.font_normal_14,
-            command=self.toggle_websocket_connection,
-            fg_color="#1E5631",  # 接続時は緑色
-            hover_color="#2E8B57"
+        self._slider_kw = dict(
+            progress_color=self.COL_ACCENT, button_color=self.COL_ACCENT,
+            button_hover_color=self.COL_ACCENT_HOVER, fg_color=self.COL_INPUT,
         )
-        self.ws_button.pack(pady=10)
+        pad = self.PAD
+        gap = 8
 
-        # WebSocket接続状態ラベル
-        self.ws_status_label: ctk.CTkLabel = ctk.CTkLabel(
-            ws_frame,
-            textvariable=self.ws_status_var,
-            font=self.font_normal_14,
-            text_color="gray"
+        # ---------------- WebSocket カード ----------------
+        ws_card = self._card(left_column_frame)
+        ws_card.pack(fill="x", pady=(0, gap))
+        self._card_title(ws_card, "WebSocket")
+
+        self.ws_label = self._sub_label(ws_card, "WebSocketサーバーURL", top=0)
+        self.ws_entry = ctk.CTkEntry(ws_card, textvariable=self.ws_url_var, **self._entry_kw)
+        self.ws_entry.pack(fill="x", padx=pad, pady=(0, gap))
+
+        self.ws_token_label = self._sub_label(ws_card, "WebSocketトークン（任意）")
+        self.ws_token_entry = ctk.CTkEntry(ws_card, textvariable=self.ws_token_var, **self._entry_kw)
+        self.ws_token_entry.pack(fill="x", padx=pad, pady=(0, gap))
+
+        self.ws_button = ctk.CTkButton(
+            ws_card, textvariable=self.ws_button_var, command=self.toggle_websocket_connection,
+            **{**self._btn_kw, "fg_color": self.COL_SUCCESS, "hover_color": self.COL_SUCCESS_HOVER},
         )
-        self.ws_status_label.pack(pady=5)
+        self.ws_button.pack(fill="x", padx=pad, pady=(4, gap))
 
-        devices_frame: ctk.CTkFrame = ctk.CTkFrame(left_column_frame)
-        devices_frame.pack(fill="x", padx=10, pady=10)
-
-        # オーディオ出力デバイス選択
-        self.device_label: ctk.CTkLabel = ctk.CTkLabel(
-            devices_frame,
-            text="出力デバイス",
-            font=self.font_normal_14
+        self.ws_status_label = ctk.CTkLabel(
+            ws_card, textvariable=self.ws_status_var, font=self.font_caption,
+            text_color=self.COL_TEXT_MUTED, anchor="w",
         )
-        self.device_label.pack(anchor="w", padx=10, pady=5)
+        self.ws_status_label.pack(fill="x", padx=pad, pady=(0, 12))
 
-        # デバイス選択用の水平フレーム
-        device_frame: ctk.CTkFrame = ctk.CTkFrame(devices_frame)
-        device_frame.pack(fill="x", padx=10, pady=5)
+        # ---------------- デバイス カード ----------------
+        dev_card = self._card(right_column_frame)
+        dev_card.pack(fill="x", pady=(0, gap))
+        self._card_title(dev_card, "出力デバイス")
 
-        # ホスト選択コンボボックス
-        self.host_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            device_frame,
-            variable=self.host_var,
-            values=["ホストを読み込み中..."],
-            font=self.font_normal_12,
-            dropdown_font=self.font_normal_12,
-            width=120,
-            state="readonly",
-            command=self.on_host_change
+        self.device_label = self._sub_label(dev_card, "出力デバイス", top=0)
+        device_frame = ctk.CTkFrame(dev_card, fg_color="transparent")
+        device_frame.pack(fill="x", padx=pad, pady=(0, gap))
+        self.host_dropdown = ctk.CTkComboBox(
+            device_frame, variable=self.host_var, values=["ホストを読み込み中..."],
+            width=132, command=self.on_host_change, **self._combo_kw,
         )
-        self.host_dropdown.pack(side="left", padx=(0, 5))
-
-        # デバイス選択コンボボックス
-        self.device_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            device_frame,
-            variable=self.device_var,
-            values=["デバイスを読み込み中..."],
-            font=self.font_normal_12,
-            dropdown_font=self.font_normal_12,
-            width=170,
-            state="readonly",
-            command=self.on_device_change
+        self.host_dropdown.pack(side="left", padx=(0, 8))
+        self.device_dropdown = ctk.CTkComboBox(
+            device_frame, variable=self.device_var, values=["デバイスを読み込み中..."],
+            command=self.on_device_change, **self._combo_kw,
         )
         self.device_dropdown.pack(side="left", fill="x", expand=True)
-        self.device_label_2: ctk.CTkLabel = ctk.CTkLabel(
-            devices_frame,
-            text="第2出力デバイス",
-            font=self.font_normal_14
+
+        self.device_label_2 = self._sub_label(dev_card, "第2出力デバイス")
+        device_frame_2 = ctk.CTkFrame(dev_card, fg_color="transparent")
+        device_frame_2.pack(fill="x", padx=pad, pady=(0, gap))
+        self.host_dropdown_2 = ctk.CTkComboBox(
+            device_frame_2, variable=self.host_var_2, values=["ホストを読み込み中..."],
+            width=132, command=self.on_host_2_change, **self._combo_kw,
         )
-        self.device_label_2.pack(anchor="w", padx=10, pady=5)
-
-        # 第2デバイス選択用の水平フレーム
-        device_frame_2: ctk.CTkFrame = ctk.CTkFrame(devices_frame)
-        device_frame_2.pack(fill="x", padx=10, pady=5)
-
-        # 第2ホスト選択コンボボックス
-        self.host_dropdown_2: ctk.CTkComboBox = ctk.CTkComboBox(
-            device_frame_2,
-            variable=self.host_var_2,
-            values=["ホストを読み込み中..."],
-            font=self.font_normal_12,
-            dropdown_font=self.font_normal_12,
-            width=120,
-            state="readonly",
-            command=self.on_host_2_change
-        )
-        self.host_dropdown_2.pack(side="left", padx=(0, 5))
-
-        # 第2デバイス選択コンボボックス
-        self.device_dropdown_2: ctk.CTkComboBox = ctk.CTkComboBox(
-            device_frame_2,
-            variable=self.device_var_2,
-            values=["デバイスを読み込み中..."],
-            font=self.font_normal_12,
-            dropdown_font=self.font_normal_12,
-            width=170,
-            state="readonly",
-            command=self.on_device_2_change
+        self.host_dropdown_2.pack(side="left", padx=(0, 8))
+        self.device_dropdown_2 = ctk.CTkComboBox(
+            device_frame_2, variable=self.device_var_2, values=["デバイスを読み込み中..."],
+            command=self.on_device_2_change, **self._combo_kw,
         )
         self.device_dropdown_2.pack(side="left", fill="x", expand=True)
 
-        self.speaker_2_enable_checkbox: ctk.CTkCheckBox = ctk.CTkCheckBox(
-            devices_frame,
-            text="第2スピーカーを有効にする",
-            variable=self.speaker_2_enabled_var,
-            font=self.font_normal_14,
-            command=self.on_speaker_2_enable_change
+        self.speaker_2_enable_checkbox = ctk.CTkCheckBox(
+            dev_card, text="第2スピーカーを有効にする", variable=self.speaker_2_enabled_var,
+            command=self.on_speaker_2_enable_change, **self._check_kw,
         )
-        self.speaker_2_enable_checkbox.pack(anchor="w", padx=10, pady=5)
+        self.speaker_2_enable_checkbox.pack(anchor="w", padx=pad, pady=(4, 12))
 
-        # --- 1列目 下部: VOICEVOX設定 ---
-        voicevox_frame = ctk.CTkFrame(left_column_frame)
-        voicevox_frame.pack(fill="x", expand=False, padx=10, pady=10)
+        # ---------------- VOICEVOX カード ----------------
+        vv_card = self._card(right_column_frame)
+        vv_card.pack(fill="x", pady=(0, gap))
+        self.voicevox_settings_label = self._card_title(vv_card, "VOICEVOX設定")
 
-        self.voicevox_settings_label = ctk.CTkLabel(voicevox_frame, text="VOICEVOX Settings", font=self.font_normal_14)
-        self.voicevox_settings_label.pack(anchor="w", padx=10, pady=10)
-
-        self.char_label: ctk.CTkLabel = ctk.CTkLabel(
-            voicevox_frame,
-            text="キャラクター選択",
-            font=self.font_normal_14
+        self.char_label = self._sub_label(vv_card, "キャラクター選択", top=0)
+        self.character_dropdown = ctk.CTkComboBox(
+            vv_card, variable=self.character_var, values=["キャラクターを読み込み中..."],
+            command=self.on_character_change, **self._combo_kw,
         )
-        self.char_label.pack(anchor="w", padx=10, pady=5)
+        self.character_dropdown.pack(fill="x", padx=pad, pady=(0, gap))
 
-        # キャラクター選択のComboBox
-        self.character_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            voicevox_frame,
-            variable=self.character_var,
-            values=["キャラクターを読み込み中..."],
-            font=self.font_normal_14,
-            dropdown_font=self.font_normal_14,
-            width=200,
-            state="readonly",
-            command=self.on_character_change
+        self.style_label_left = self._sub_label(vv_card, "声のスタイル")
+        self.style_dropdown = ctk.CTkComboBox(
+            vv_card, variable=self.style_var, values=["スタイルを読み込み中..."],
+            command=self.on_style_change, **self._combo_kw,
         )
-        self.character_dropdown.pack(fill="x", padx=10, pady=5)
+        self.style_dropdown.pack(fill="x", padx=pad, pady=(0, 12))
 
-        self.style_label_left: ctk.CTkLabel = ctk.CTkLabel(
-            voicevox_frame,
-            text="声のスタイル",
-            font=self.font_normal_14
-        )
-        self.style_label_left.pack(anchor="w", padx=10, pady=5)
+        # ---------------- TTSエンジン カード ----------------
+        tts_frame = self._card(left_column_frame)
+        tts_frame.pack(fill="x", pady=(0, gap))
+        self._card_title(tts_frame, "TTSエンジン")
 
-        self.style_dropdown: ctk.CTkComboBox = ctk.CTkComboBox(
-            voicevox_frame,
-            variable=self.style_var,
-            values=["スタイルを読み込み中..."],
-            font=self.font_normal_14,
-            dropdown_font=self.font_normal_14,
-            width=200,
-            state="readonly",
-            command=self.on_style_change
-        )
-        self.style_dropdown.pack(fill="x", padx=10, pady=5)
-
-        # --- 2列目: 再生設定とテスト ---
-        # playback_settings_label = ctk.CTkLabel(right_column_frame, text="Playback & Test", font=self.font_normal_14)
-        # playback_settings_label.pack(anchor="w", padx=10, pady=10)
-
-        # --- 翻訳前(Source)のTTS設定 ---
-        tts_frame = ctk.CTkFrame(right_column_frame)
-        tts_frame.pack(fill="x", padx=10, pady=10)
-
-        self.source_tts_label = ctk.CTkLabel(tts_frame, text="翻訳前 (Source) のTTS設定", font=self.font_normal_14)
-        self.source_tts_label.pack(anchor="w", padx=10, pady=10)
-
+        self.source_tts_label = self._sub_label(tts_frame, "翻訳前 (Source) のTTS設定", top=0)
         self.source_tts_engine_dropdown = ctk.CTkComboBox(
-            tts_frame,
-            variable=self.source_tts_engine_var,
-            values=["VOICEVOX", "gTTS"],
-            font=self.font_normal_14,
-            state="readonly",
-            command=self.on_source_tts_engine_change
+            tts_frame, variable=self.source_tts_engine_var, values=["VOICEVOX", "gTTS"],
+            command=self.on_source_tts_engine_change, **self._combo_kw,
         )
-        self.source_tts_engine_dropdown.pack(fill="x", padx=10, pady=5)
-
+        self.source_tts_engine_dropdown.pack(fill="x", padx=pad, pady=(0, 6))
         self.play_source_checkbox = ctk.CTkCheckBox(
-            tts_frame,
-            text="翻訳前のテキストを再生する",
-            variable=self.play_source_var,
-            font=self.font_normal_14,
-            command=self.on_play_source_change
+            tts_frame, text="翻訳前のテキストを再生する", variable=self.play_source_var,
+            command=self.on_play_source_change, **self._check_kw,
         )
-        self.play_source_checkbox.pack(anchor="w", padx=10, pady=10)
+        self.play_source_checkbox.pack(anchor="w", padx=pad, pady=(2, gap))
 
-        # --- 翻訳後(Destination)のTTS設定 ---
-        self.dest_tts_label = ctk.CTkLabel(tts_frame, text="翻訳後 (Destination) のTTS設定", font=self.font_normal_14)
-        self.dest_tts_label.pack(anchor="w", padx=10, pady=5)
-
+        self.dest_tts_label = self._sub_label(tts_frame, "翻訳後 (Destination) のTTS設定")
         self.dest_tts_engine_dropdown = ctk.CTkComboBox(
-            tts_frame,
-            variable=self.dest_tts_engine_var,
-            values=["gTTS", "VOICEVOX"],
-            font=self.font_normal_14,
-            state="readonly",
-            command=self.on_dest_tts_engine_change
+            tts_frame, variable=self.dest_tts_engine_var, values=["gTTS", "VOICEVOX"],
+            command=self.on_dest_tts_engine_change, **self._combo_kw,
         )
-        self.dest_tts_engine_dropdown.pack(fill="x", padx=10, pady=5)
-
+        self.dest_tts_engine_dropdown.pack(fill="x", padx=pad, pady=(0, 6))
         self.play_dest_checkbox = ctk.CTkCheckBox(
-            tts_frame,
-            text="翻訳後のテキストを再生する",
-            variable=self.play_dest_var,
-            font=self.font_normal_14,
-            command=self.on_play_dest_change
+            tts_frame, text="翻訳後のテキストを再生する", variable=self.play_dest_var,
+            command=self.on_play_dest_change, **self._check_kw,
         )
-        self.play_dest_checkbox.pack(anchor="w", padx=10, pady=10)
+        self.play_dest_checkbox.pack(anchor="w", padx=pad, pady=(2, 12))
 
-        volume_frame = ctk.CTkFrame(right_column_frame)
-        volume_frame.pack(fill="x", padx=10, pady=10)
+        # ---------------- 音響 カード ----------------
+        volume_frame = self._card(left_column_frame)
+        volume_frame.pack(fill="x", pady=(0, gap))
+        self._card_title(volume_frame, "音響")
 
-        # 音量調整スライダー
-        self.volume_label: ctk.CTkLabel = ctk.CTkLabel(
-            volume_frame,
-            text="音量",
-            font=self.font_normal_14
+        vol_row = ctk.CTkFrame(volume_frame, fg_color="transparent")
+        vol_row.pack(fill="x", padx=pad)
+        self.volume_label = ctk.CTkLabel(
+            vol_row, text="音量", font=self.font_label,
+            text_color=self.COL_TEXT_MUTED, anchor="w",
         )
-        self.volume_label.pack(anchor="w", padx=10, pady=0)
-
-        # 音量値表示用のラベル
-        volume_value_label: ctk.CTkLabel = ctk.CTkLabel(
-            volume_frame,
-            textvariable=self.volume_value_var,
-            font=self.font_normal_14,
-            width=40
+        self.volume_label.pack(side="left")
+        ctk.CTkLabel(
+            vol_row, textvariable=self.volume_value_var, font=self.font_label,
+            text_color=self.COL_TEXT, anchor="e",
+        ).pack(side="right")
+        self.volume_slider = ctk.CTkSlider(
+            volume_frame, from_=0, to=1.0, number_of_steps=20,
+            command=self.on_volume_change, **self._slider_kw,
         )
-        volume_value_label.pack(anchor="e", padx=10)
+        self.volume_slider.set(self.volume)
+        self.volume_slider.pack(fill="x", padx=pad, pady=(6, gap))
 
-        # スライダーウィジェット
-        self.volume_slider: ctk.CTkSlider = ctk.CTkSlider(
-            volume_frame,
-            from_=0,
-            to=1.0,
-            number_of_steps=20,
-            command=self.on_volume_change
+        spd_row = ctk.CTkFrame(volume_frame, fg_color="transparent")
+        spd_row.pack(fill="x", padx=pad)
+        self.speed_label = ctk.CTkLabel(
+            spd_row, text="再生速度", font=self.font_label,
+            text_color=self.COL_TEXT_MUTED, anchor="w",
         )
-        self.volume_slider.set(self.volume)  # 現在の音量を設定
-        self.volume_slider.pack(fill="x", padx=10, pady=5)
-
-        # 再生速度調整スライダー
-        self.speed_label: ctk.CTkLabel = ctk.CTkLabel(
-            volume_frame,
-            text="再生速度",
-            font=self.font_normal_14
+        self.speed_label.pack(side="left")
+        ctk.CTkLabel(
+            spd_row, textvariable=self.speed_value_var, font=self.font_label,
+            text_color=self.COL_TEXT, anchor="e",
+        ).pack(side="right")
+        self.speed_slider = ctk.CTkSlider(
+            volume_frame, from_=0.5, to=2.0, number_of_steps=30,
+            command=self.on_speed_change, **self._slider_kw,
         )
-        self.speed_label.pack(anchor="w", padx=10, pady=0)
+        self.speed_slider.set(self.speed)
+        self.speed_slider.pack(fill="x", padx=pad, pady=(6, 12))
 
-        # 再生速度値表示用のラベル
-        speed_value_label: ctk.CTkLabel = ctk.CTkLabel(
-            volume_frame,
-            textvariable=self.speed_value_var,
-            font=self.font_normal_14,
-            width=40
-        )
-        speed_value_label.pack(anchor="e", padx=10)
+        # ---------------- テスト再生 カード ----------------
+        test_frame = self._card(right_column_frame)
+        test_frame.pack(fill="x")
+        self.test_label = self._card_title(test_frame, "再生")
 
-        # スライダーウィジェット
-        self.speed_slider: ctk.CTkSlider = ctk.CTkSlider(
-            volume_frame,
-            from_=0.5,
-            to=2.0,
-            number_of_steps=30,
-            command=self.on_speed_change
-        )
-        self.speed_slider.set(self.speed)  # 現在の再生速度を設定
-        self.speed_slider.pack(fill="x", padx=10, pady=5)
+        self.test_text_entry = ctk.CTkEntry(test_frame, textvariable=self.test_text_var, **self._entry_kw)
+        self.test_text_entry.pack(fill="x", padx=pad, pady=(0, gap))
 
-        # テスト再生セクション
-        test_frame: ctk.CTkFrame = ctk.CTkFrame(right_column_frame)
-        test_frame.pack(fill="x", padx=10, pady=10)
-
-        self.test_label: ctk.CTkLabel = ctk.CTkLabel(
-            test_frame,
-            text="再生",
-            font=self.font_normal_14
-        )
-        self.test_label.pack(anchor="w", padx=10, pady=5)
-
-        self.test_text_entry: ctk.CTkEntry = ctk.CTkEntry(
-            test_frame,
-            font=self.font_normal_14,
-            width=300,
-            textvariable=self.test_text_var
-        )
-        self.test_text_entry.pack(fill="x", padx=10, pady=5)
-
-        # gTTS言語設定 (テスト再生用)
-        self.gtts_lang_label = ctk.CTkLabel(test_frame, text="gTTS Language for Test", font=self.font_normal_14)
-        self.gtts_lang_label.pack(anchor="w", padx=10, pady=5)
-
+        self.gtts_lang_label = self._sub_label(test_frame, "gTTS言語 (テスト用)")
         self.gtts_lang_dropdown = ctk.CTkComboBox(
-            test_frame,
-            variable=self.gtts_lang_var,
+            test_frame, variable=self.gtts_lang_var,
             values=list(self.gtts_supported_languages.keys()),
-            command=self.on_gtts_lang_change,
-            font=self.font_normal_14,
-            state="readonly"
+            command=self.on_gtts_lang_change, **self._combo_kw,
         )
-        self.gtts_lang_dropdown.pack(fill="x", padx=10, pady=5)
+        self.gtts_lang_dropdown.pack(fill="x", padx=pad, pady=(0, gap))
 
-        replay_frame: ctk.CTkFrame = ctk.CTkFrame(test_frame)
-        replay_frame.pack(fill="x", padx=10, pady=5)
-
-        self.play_button: ctk.CTkButton = ctk.CTkButton(
-            replay_frame,
-            text="再生 (VOICEVOX)",
-            command=lambda: self.play_test_audio("VOICEVOX"),
-            font=self.font_normal_14
+        replay_frame = ctk.CTkFrame(test_frame, fg_color="transparent")
+        replay_frame.pack(fill="x", padx=pad, pady=(0, gap))
+        self.play_button = ctk.CTkButton(
+            replay_frame, text="再生 (VOICEVOX)",
+            command=lambda: self.play_test_audio("VOICEVOX"), **self._btn_kw,
         )
-        self.play_button.pack(side="left", padx=(0, 5))
-
-        self.play_gtts_button: ctk.CTkButton = ctk.CTkButton(
-            replay_frame,
-            text="再生 (gTTS)",
-            command=lambda: self.play_test_audio("gTTS"),
-            font=self.font_normal_14
+        self.play_button.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self.play_gtts_button = ctk.CTkButton(
+            replay_frame, text="再生 (gTTS)",
+            command=lambda: self.play_test_audio("gTTS"), **self._btn_kw,
         )
-        self.play_gtts_button.pack(side="left", fill="x", expand=True)
+        self.play_gtts_button.pack(side="left", fill="x", expand=True, padx=(4, 0))
 
-        # 再生停止とクリアボタン
-        self.stop_clear_button: ctk.CTkButton = ctk.CTkButton(
-            right_column_frame,
-            text="再生停止とクリア",
+        self.stop_clear_button = ctk.CTkButton(
+            test_frame, text="再生停止とクリア",
             command=self.on_stop_and_clear_audio,
-            font=self.font_normal_14,
-            fg_color="#B22222",
-            hover_color="#8B0000"
+            **{**self._btn_kw, "fg_color": "transparent", "hover_color": self.COL_DANGER_HOVER,
+               "text_color": self.COL_DANGER, "border_width": 1, "border_color": self.COL_DANGER},
         )
-        self.stop_clear_button.pack(pady=10)
+        self.stop_clear_button.pack(fill="x", padx=pad, pady=(0, 12))
 
-        # ステータスバーとバージョン情報を配置するフレーム
-        status_frame: ctk.CTkFrame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        status_frame.pack(fill="x", side="bottom", padx=10, pady=(5, 0))
-
-        # ステータスバー
-        self.status_bar: ctk.CTkLabel = ctk.CTkLabel(
-            status_frame,
-            textvariable=self.status_var,
-            font=self.font_normal_12,
-            height=25,
-            anchor="w"
+        # ================= ステータスバーの中身 =================
+        self.status_bar = ctk.CTkLabel(
+            status_frame, textvariable=self.status_var, font=self.font_caption,
+            text_color=self.COL_TEXT_MUTED, height=24, anchor="w",
         )
         self.status_bar.pack(fill="x", side="left", expand=True)
 
-        # Language selection dropdown (moved to the bottom right)
-        self.language_dropdown = ctk.CTkComboBox(
-            status_frame,
-            variable=self.language_var,
-            values=["English", "日本語"],
-            font=self.font_normal_12,
-            dropdown_font=self.font_normal_12,
-            width=120,
-            state="readonly",
-            command=self.on_language_change
-        )
-        self.language_dropdown.pack(side="right", padx=(10, 0))
-        self.language_var.set(self.language)
-
-        # バージョン情報ラベル（右寄せ）
         version_label: ctk.CTkLabel = ctk.CTkLabel(
-            status_frame,
-            text=self.app_version,
-            font=self.font_normal_12,
-            height=25,
-            anchor="e"
+            status_frame, text=self.app_version, font=self.font_caption,
+            text_color=self.COL_TEXT_MUTED, height=24, anchor="e",
         )
         version_label.pack(side="right", padx=(10, 0))
+
+        self.language_dropdown = ctk.CTkComboBox(
+            status_frame, variable=self.language_var, values=["English", "日本語"],
+            width=118, height=28, command=self.on_language_change,
+            **{k: v for k, v in self._combo_kw.items() if k != "height"},
+        )
+        self.language_dropdown.pack(side="right")
+        self.language_var.set(self.language)
 
         self.update_ui_text()
 
@@ -1289,19 +1188,19 @@ class VRCTTTSConnectorGUI(ctk.CTk):
     def _update_ws_status_connected(self) -> None:
         """WebSocket接続状態のUIを更新（接続時）"""
         self.ws_status_var.set(self.texts[self.language]["websocket_status_connected"])
-        self.ws_status_label.configure(text_color="#4CAF50")  # 緑色
+        self.ws_status_label.configure(text_color=self.COL_SUCCESS)
         self.ws_button_var.set(self.texts[self.language]["disconnect_websocket"])
         self.ws_button.configure(
-            fg_color="#8B0000", hover_color="#B22222")  # 赤色
+            fg_color=self.COL_DANGER, hover_color=self.COL_DANGER_HOVER)
         self.status_var.set(self.texts[self.language]["status_ws_connected"])
 
     def _update_ws_status_disconnected(self) -> None:
         """WebSocket接続状態のUIを更新（切断時）"""
         self.ws_status_var.set(self.texts[self.language]["websocket_status_disconnected"])
-        self.ws_status_label.configure(text_color="gray")
+        self.ws_status_label.configure(text_color=self.COL_TEXT_MUTED)
         self.ws_button_var.set(self.texts[self.language]["connect_websocket"])
         self.ws_button.configure(
-            fg_color="#1E5631", hover_color="#2E8B57")  # 緑色
+            fg_color=self.COL_SUCCESS, hover_color=self.COL_SUCCESS_HOVER)
         self.status_var.set(self.texts[self.language]["status_ws_disconnected"])
 
     def _synthesize_and_play_from_ws(self, source_text: str, dest_text: str, source_lang_name: str, dest_lang_name: str) -> None:
