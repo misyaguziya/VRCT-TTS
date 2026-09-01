@@ -423,9 +423,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             height=34, corner_radius=self.RADIUS_SM, border_width=1,
             border_color=self.COL_BORDER_LIGHT, fg_color=self.COL_INPUT, font=self.font_body,
         )
+        # border_width=0: CTkComboBox は右側の矢印ボタンを角丸を無視した
+        # 四角形で描くため、枠を付けると角丸のコーナーからはみ出して見える。
+        # VRCT の dropdown_toggle_button も枠なし (dark_950 の塗りのみ)。
         self._combo_kw = dict(
-            height=34, corner_radius=self.RADIUS_SM, border_width=1,
-            border_color=self.COL_BORDER_LIGHT, fg_color=self.COL_INPUT,
+            height=34, corner_radius=self.RADIUS_SM, border_width=0,
+            fg_color=self.COL_INPUT,
             button_color=self.COL_INPUT, button_hover_color=self.COL_INPUT_HOVER,
             dropdown_fg_color=self.COL_BG, dropdown_hover_color="#4b4c4f",
             dropdown_text_color=self.COL_TEXT, text_color=self.COL_TEXT,
