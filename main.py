@@ -12,6 +12,7 @@ import threading
 import ctypes
 import customtkinter as ctk
 from typing import Dict, List, Optional, Any, Union
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 import websocket
 import json
 import html
@@ -72,6 +73,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.volume: float = 0.8  # デフォルトの音量 (0.0-1.0)
         self.speed: float = 1.0 # デフォルトの再生速度 (0.5-2.0)
         self.ws_url: str = "ws://127.0.0.1:2231"
+        self.ws_token: str = ""
         self.gtts_lang: str = "English"
         self.source_tts_engine: str = "VOICEVOX"
         self.dest_tts_engine: str = "gTTS"
@@ -96,6 +98,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.volume_value_var: Optional[ctk.StringVar] = None
         self.speed_value_var: Optional[ctk.StringVar] = None
         self.ws_url_var: Optional[ctk.StringVar] = None
+        self.ws_token_var: Optional[ctk.StringVar] = None
         self.ws_button_var: Optional[ctk.StringVar] = None
         self.ws_status_var: Optional[ctk.StringVar] = None
         self.test_text_var: Optional[ctk.StringVar] = None
@@ -161,6 +164,8 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.speed_value_var = ctk.StringVar(value=f"x{self.speed:.2f}")
         self.ws_url_var = ctk.StringVar(value=self.ws_url)
         self.ws_url_var.trace_add("write", lambda *args: self.save_config())
+        self.ws_token_var = ctk.StringVar(value=self.ws_token)
+        self.ws_token_var.trace_add("write", lambda *args: self.save_config())
         self.ws_button_var = ctk.StringVar(value="WebSocket接続開始")
         self.ws_status_var = ctk.StringVar(value="WebSocket: 未接続")
         self.test_text_var = ctk.StringVar(value="こんにちは")
@@ -207,6 +212,22 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             textvariable=self.ws_url_var
         )
         self.ws_entry.pack(fill="x", padx=10, pady=10)
+
+        # WebSocketトークン設定 (VRCT側のトークン認証に対応)
+        self.ws_token_label: ctk.CTkLabel = ctk.CTkLabel(
+            ws_frame,
+            text="WebSocketトークン（任意）",
+            font=self.font_normal_14
+        )
+        self.ws_token_label.pack(anchor="w", padx=10, pady=(0, 5))
+
+        self.ws_token_entry: ctk.CTkEntry = ctk.CTkEntry(
+            ws_frame,
+            width=200,
+            font=self.font_normal_14,
+            textvariable=self.ws_token_var
+        )
+        self.ws_token_entry.pack(fill="x", padx=10, pady=(0, 10))
 
         # WebSocket接続ボタン
         self.ws_button: ctk.CTkButton = ctk.CTkButton(
@@ -907,6 +928,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         lang = self.language
         self.title(self.texts[lang]["app_title"])
         self.ws_label.configure(text=self.texts[lang]["websocket_server_url"])
+        self.ws_token_label.configure(text=self.texts[lang]["websocket_token"])
         self.ws_button_var.set(self.texts[lang]["connect_websocket"] if not self.ws_connected else self.texts[lang]["disconnect_websocket"])
         self.ws_status_var.set(self.texts[lang]["websocket_status_disconnected"])
         self.device_label.configure(text=self.texts[lang]["output_device"])
@@ -1082,6 +1104,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.volume = config.get("volume", 0.8)  # デフォルトは0.8
         self.speed = config.get("speed", 1.0) # デフォルトは1.0
         self.ws_url = config.get("ws_url", "ws://127.0.0.1:2231")
+        self.ws_token = config.get("ws_token", "")
         self.gtts_lang = config.get("gtts_lang", "English")
         self.source_tts_engine = config.get("source_tts_engine", "VOICEVOX")
         self.dest_tts_engine = config.get("dest_tts_engine", "gTTS")
@@ -1109,6 +1132,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             "volume": self.volume,
             "speed": self.speed,
             "ws_url": self.ws_url_var.get(),
+            "ws_token": self.ws_token_var.get(),
             "gtts_lang": self.gtts_lang,
             "source_tts_engine": self.source_tts_engine,
             "dest_tts_engine": self.dest_tts_engine,
@@ -1118,7 +1142,32 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         }
         Config.save(config_data)
         self.ws_url = self.ws_url_var.get()
+        self.ws_token = self.ws_token_var.get()
         self.status_var.set(self.texts[self.language]["config_saved"])
+
+    def _build_ws_url(self) -> str:
+        """接続用のWebSocket URLを組み立てる。
+
+        VRCT側のトークン認証に対応するため、トークンが設定されていれば
+        URLに ``?token=...`` を付与する。URLに既に token クエリが含まれる
+        場合（VRCTの「WebSocket URL（クリックでコピー）」で取得した完全な
+        URLを貼り付けたケース）は、そのURLをそのまま使う。
+        """
+        base_url = self.ws_url_var.get().strip() or "ws://127.0.0.1:2231"
+        token = self.ws_token_var.get().strip()
+        if not token:
+            return base_url
+
+        parts = urlsplit(base_url)
+        query = parse_qsl(parts.query, keep_blank_values=True)
+        if any(key == "token" and value for key, value in query):
+            return base_url
+
+        query = [(key, value) for key, value in query if key != "token"]
+        query.append(("token", token))
+        return urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+        )
 
     def toggle_websocket_connection(self) -> None:
         """WebSocket接続の開始/停止を切り替える"""
@@ -1143,6 +1192,9 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         if not self.ws_url:
             self.ws_url = "ws://127.0.0.1:2231"
             self.ws_url_var.set(self.ws_url)
+
+        # トークン認証に対応: URL に ?token=... を付与した接続用URLを組み立てる
+        connect_url = self._build_ws_url()
 
         # WebSocketイベントハンドラ
         def on_message(ws: websocket.WebSocketApp, message: str) -> None:
@@ -1194,8 +1246,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                 self.after(0, lambda msg=f"{self.texts[self.language]['error_message_processing']}{e}": self.status_var.set(msg))
 
         def on_error(ws: websocket.WebSocketApp, error: Exception) -> None:
-            self.after(0, lambda: self.status_var.set(
-                f"WebSocketエラー: {error}"))
+            # VRCT のトークン認証に失敗すると、ハンドシェイク時に 403 が返る
+            if "403" in str(error) or "Forbidden" in str(error):
+                msg = self.texts[self.language]["error_ws_forbidden"]
+            else:
+                msg = f"WebSocketエラー: {error}"
+            self.after(0, lambda: self.status_var.set(msg))
 
         def on_close(ws: websocket.WebSocketApp, close_status_code: Optional[int], close_msg: Optional[str]) -> None:
             self.ws_connected = False
@@ -1209,7 +1265,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         try:
             self.status_var.set(f"{self.texts[self.language]['status_ws_connecting']}{self.ws_url}")
             self.ws = websocket.WebSocketApp(
-                self.ws_url,
+                connect_url,
                 on_open=on_open,
                 on_message=on_message,
                 on_error=on_error,

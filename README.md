@@ -92,8 +92,9 @@ dist\VRCT-TTS\VRCT-TTS.exe
 
 #### 🌐 WebSocket連携
 1. **URL設定**: VRCTのWebSocketサーバーURL（デフォルト: `ws://127.0.0.1:2231`）
-2. **接続管理**: ワンクリックで接続・切断
-3. **メッセージ処理**: JSON形式のメッセージを自動解析
+2. **トークン設定**: VRCT側でWebSocketトークン認証が有効な場合、VRCTの「WebSocket設定」からトークンをコピーして「WebSocketトークン」欄に貼り付け（`ws://host:port/?token=...` 形式の完全なURLをURL欄に貼り付けてもOK）
+3. **接続管理**: ワンクリックで接続・切断
+4. **メッセージ処理**: JSON形式のメッセージを自動解析
 
 #### 🔊 オーディオ設定
 - **ホスト選択**: オーディオドライバー別の出力先選択
@@ -123,6 +124,7 @@ dist\VRCT-TTS\VRCT-TTS.exe
   "volume": 0.8,
   "speed": 1.0,
   "ws_url": "ws://127.0.0.1:2231",
+  "ws_token": "",
   "gtts_lang": "English",
   "source_tts_engine": "VOICEVOX",
   "dest_tts_engine": "gTTS",
