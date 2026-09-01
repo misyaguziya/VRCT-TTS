@@ -35,22 +35,27 @@ class VRCTTTSConnectorGUI(ctk.CTk):
     """VRCT-TTSアプリケーション"""
 
     # ------------------------------------------------------------------
-    # UIテーマトークン (モダンなフラットデザイン用の統一パレット / 余白)
+    # UIテーマトークン (VRCT 本体のカラーパレットに合わせる。
+    # 値は VRCT src-ui/views/app/_index_css/variables.css より)
     # ------------------------------------------------------------------
-    COL_BG            = "#17181c"   # ウィンドウ背景
-    COL_CARD          = "#22242b"   # カード表面
-    COL_INPUT         = "#2c2f38"   # 入力欄 / コンボボックス表面
-    COL_BORDER        = "#3a3e49"   # 罫線
-    COL_TEXT          = "#e9eaee"   # 本文
-    COL_TEXT_MUTED    = "#9a9ca6"   # 補助テキスト
-    COL_ACCENT        = "#6c7cff"   # アクセント (インディゴ)
-    COL_ACCENT_HOVER  = "#5a67e6"
-    COL_SUCCESS       = "#3ba55d"   # 接続
-    COL_SUCCESS_HOVER = "#31894e"
-    COL_DANGER        = "#e5544b"   # 切断 / 停止
-    COL_DANGER_HOVER  = "#c5443c"
-    RADIUS            = 12          # カードの角丸
-    RADIUS_SM         = 8           # 入力欄 / ボタンの角丸
+    COL_BG            = "#292a2d"   # dark_900   ウィンドウ背景 (VRCT 設定ページ)
+    COL_CARD          = "#2e2f32"   # dark_888   カード表面 (VRCT メイン背景)
+    COL_INPUT         = "#1f2022"   # dark_950   入力欄 / コンボボックス
+    COL_INPUT_HOVER   = "#242528"   # dark_925
+    COL_BORDER        = "#434447"   # dark_825   罫線 / スライダーのレール
+    COL_BORDER_LIGHT  = "#5b5c5f"   # dark_750   入力欄の枠
+    COL_TEXT          = "#f2f2f2"   # dark_basic_text
+    COL_TEXT_MUTED    = "#a9aaae"   # dark_500   補助ラベル
+    COL_ACCENT        = "#368777"   # primary_600  アクセント / プライマリ操作
+    COL_ACCENT_HOVER  = "#3b9483"   # primary_500
+    COL_ACCENT_ACTIVE = "#317767"   # primary_700
+    COL_LINK          = "#61b4a7"   # primary_300  リンク / アクティブ表示
+    COL_SUCCESS       = "#368777"   # primary_600  (VRCT: success = primary_600)
+    COL_SUCCESS_HOVER = "#3b9483"   # primary_500
+    COL_DANGER        = "#bb4448"   # error_bc     切断 / 停止
+    COL_DANGER_HOVER  = "#9c3938"   # error_bc_active
+    RADIUS            = 8           # カードの角丸
+    RADIUS_SM         = 4           # 入力欄 / ボタンの角丸 (VRCT: 0.4rem 一律)
     PAD               = 16          # カード内側の基準余白
     GAP               = 10          # 要素間の基準間隔
 
@@ -187,7 +192,10 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
     def _card(self, parent: Any) -> "ctk.CTkFrame":
         """統一スタイルのカード (セクション) フレームを生成する"""
-        return ctk.CTkFrame(parent, corner_radius=self.RADIUS, fg_color=self.COL_CARD)
+        return ctk.CTkFrame(
+            parent, corner_radius=self.RADIUS, fg_color=self.COL_CARD,
+            border_width=1, border_color=self.COL_BORDER,
+        )
 
     def _card_title(self, parent: Any, text: str) -> "ctk.CTkLabel":
         """カード見出し (太字) を配置して返す"""
@@ -212,7 +220,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         return ctk.CTkButton(
             parent, text="", command=command, anchor="w",
             font=self.font_card_title if big else self.font_caption,
-            text_color=self.COL_TEXT if big else self.COL_ACCENT,
+            text_color=self.COL_TEXT if big else self.COL_LINK,
             fg_color="transparent", hover_color=self.COL_INPUT,
             corner_radius=self.RADIUS_SM, height=34 if big else 26,
         )
@@ -296,13 +304,13 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         # 共通ウィジェットスタイル
         self._entry_kw = dict(
             height=34, corner_radius=self.RADIUS_SM, border_width=1,
-            border_color=self.COL_BORDER, fg_color=self.COL_INPUT, font=self.font_body,
+            border_color=self.COL_BORDER_LIGHT, fg_color=self.COL_INPUT, font=self.font_body,
         )
         self._combo_kw = dict(
             height=34, corner_radius=self.RADIUS_SM, border_width=1,
-            border_color=self.COL_BORDER, fg_color=self.COL_INPUT,
-            button_color=self.COL_INPUT, button_hover_color=self.COL_BORDER,
-            dropdown_fg_color=self.COL_CARD, dropdown_hover_color=self.COL_ACCENT,
+            border_color=self.COL_BORDER_LIGHT, fg_color=self.COL_INPUT,
+            button_color=self.COL_INPUT, button_hover_color=self.COL_INPUT_HOVER,
+            dropdown_fg_color=self.COL_BG, dropdown_hover_color="#4b4c4f",
             dropdown_text_color=self.COL_TEXT, text_color=self.COL_TEXT,
             font=self.font_body, dropdown_font=self.font_body, state="readonly",
         )
@@ -312,12 +320,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         )
         self._check_kw = dict(
             font=self.font_body, fg_color=self.COL_ACCENT, hover_color=self.COL_ACCENT_HOVER,
-            checkbox_width=20, checkbox_height=20, corner_radius=5,
-            border_width=2, border_color=self.COL_BORDER,
+            checkbox_width=20, checkbox_height=20, corner_radius=3,
+            border_width=2, border_color=self.COL_BORDER_LIGHT,
         )
         self._slider_kw = dict(
             progress_color=self.COL_ACCENT, button_color=self.COL_ACCENT,
-            button_hover_color=self.COL_ACCENT_HOVER, fg_color=self.COL_INPUT,
+            button_hover_color=self.COL_ACCENT_HOVER, fg_color=self.COL_BORDER,
         )
         pad = self.PAD
         gap = 8
@@ -572,6 +580,24 @@ class VRCTTTSConnectorGUI(ctk.CTk):
                "text_color": self.COL_DANGER, "border_width": 1, "border_color": self.COL_DANGER},
         )
         self.stop_clear_button.pack(fill="x", padx=pad, pady=(0, 12))
+
+        # readonly コンボボックスの選択ハイライト (Tk 既定の青帯) を消して
+        # フラットな見た目を保つ
+        for _combo in (
+            self.source_tts_engine_dropdown, self.dest_tts_engine_dropdown,
+            self.character_dropdown, self.style_dropdown,
+            self.host_dropdown, self.device_dropdown,
+            self.host_dropdown_2, self.device_dropdown_2,
+            self.gtts_lang_dropdown, self.language_dropdown,
+        ):
+            try:
+                _combo._entry.configure(
+                    readonlybackground=self.COL_INPUT,
+                    selectbackground=self.COL_INPUT, selectforeground=self.COL_TEXT,
+                    disabledbackground=self.COL_INPUT,
+                )
+            except Exception as _e:
+                print(f"combo entry style skip: {_e}")
 
         self._update_voice_section_visibility()
         self.update_ui_text()
