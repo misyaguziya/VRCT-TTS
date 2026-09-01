@@ -94,10 +94,20 @@ class ThemedDropdown(ctk.CTkComboBox):
 
         rx = self.winfo_rootx() - root.winfo_rootx()
         ry = self.winfo_rooty() - root.winfo_rooty()
+
+        # 縦位置: コンボの直下。下にはみ出すなら上へ
         y = ry + self._current_height + 3
         if y + h > root.winfo_height() - 4:
             y = ry - h - 3
         y = max(4, y)
+
+        # 横位置: 既定は左揃え。ウィンドウ右端をはみ出すならコンボの
+        # 右端に合わせて左へ寄せ、それでも入らなければ端でクランプ
+        rw = root.winfo_width()
+        if rx + w > rw - 4:
+            rx = rx + self.winfo_width() - w
+        rx = max(4, min(rx, rw - w - 4))
+
         self._ov.place(x=rx, y=y)
         self._ov.tkraise()
 
