@@ -31,6 +31,123 @@ from config import Config
 from language import texts
 
 
+class ThemedDropdown(ctk.CTkComboBox):
+    """CTkComboBox の派生。開いたときの選択リストを OS ネイティブの
+    tkinter.Menu ではなく、アプリのテーマに合わせたウィンドウ内オーバーレイ
+    (place した CTkFrame) で描画する。
+
+    values / set / get / variable / configure などの外部インターフェースは
+    CTkComboBox のまま変わらない (差し替えは _open_dropdown_menu のみ)。
+    ウィンドウ内に置くことで overrideredirect Toplevel のフォーカス問題を回避。
+    """
+
+    _PALETTE: Dict[str, str] = {}
+
+    @classmethod
+    def set_palette(cls, **colors: str) -> None:
+        cls._PALETTE = colors
+
+    def _open_dropdown_menu(self) -> None:  # override
+        if getattr(self, "_suppress_open", False):
+            return
+        if getattr(self, "_ov", None) is not None and self._ov.winfo_exists():
+            self._close_popup()
+            return
+
+        values = list(self._values)
+        if not values:
+            return
+        p = self._PALETTE
+        root = self.winfo_toplevel()
+
+        row_h = 30
+        row_unit = row_h + 2  # + pady
+        visible = min(len(values), 8)
+        w = max(self.winfo_width(), 180)
+        h = visible * row_unit + 10
+        scroll_needed = len(values) > visible
+
+        self._ov = ctk.CTkFrame(
+            root, width=w, height=h, fg_color=p["bg"], corner_radius=4,
+            border_width=1, border_color=p["border"],
+        )
+        self._ov.pack_propagate(False)
+
+        if scroll_needed:
+            body: Any = ctk.CTkScrollableFrame(
+                self._ov, fg_color="transparent",
+                scrollbar_button_color=p["border"],
+            )
+        else:
+            body = ctk.CTkFrame(self._ov, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=2, pady=2)
+
+        current = self.get()
+        for value in values:
+            is_current = value == current
+            ctk.CTkButton(
+                body, text=value, anchor="w", height=row_h, corner_radius=3,
+                fg_color=p["hover"] if is_current else "transparent",
+                hover_color=p["hover"], text_color=p["text"], font=self._font,
+                command=lambda v=value: self._pick(v),
+            ).pack(fill="x", padx=2, pady=1)
+
+        rx = self.winfo_rootx() - root.winfo_rootx()
+        ry = self.winfo_rooty() - root.winfo_rooty()
+        y = ry + self._current_height + 3
+        if y + h > root.winfo_height() - 4:
+            y = ry - h - 3
+        y = max(4, y)
+        self._ov.place(x=rx, y=y)
+        self._ov.tkraise()
+
+        # 外側クリックで閉じるハンドラは、この「開くための click」が
+        # 配送し終わってから登録する (でないと同じ click で即閉じる)
+        self._btn1_id = None
+        self._esc_id = None
+
+        def _arm() -> None:
+            if getattr(self, "_ov", None) is None or not self._ov.winfo_exists():
+                return
+            self._btn1_id = root.bind("<Button-1>", self._maybe_close, add="+")
+            self._esc_id = root.bind("<Escape>", lambda e: self._close_popup(), add="+")
+        root.after_idle(_arm)
+
+    def _maybe_close(self, event: Any) -> None:
+        ov = getattr(self, "_ov", None)
+        if ov is None or not ov.winfo_exists():
+            return
+        ox, oy = ov.winfo_rootx(), ov.winfo_rooty()
+        inside = (ox <= event.x_root <= ox + ov.winfo_width()
+                  and oy <= event.y_root <= oy + ov.winfo_height())
+        if not inside:
+            self._close_popup()
+
+    def _pick(self, value: str) -> None:
+        self._close_popup()
+        self._dropdown_callback(value)
+
+    def _close_popup(self) -> None:
+        root = self.winfo_toplevel()
+        for attr, seq in (("_btn1_id", "<Button-1>"), ("_esc_id", "<Escape>")):
+            fid = getattr(self, attr, None)
+            if fid:
+                try:
+                    root.unbind(seq, fid)
+                except Exception:
+                    pass
+                setattr(self, attr, None)
+        ov = getattr(self, "_ov", None)
+        if ov is not None:
+            try:
+                ov.destroy()
+            except Exception:
+                pass
+        self._ov = None
+        self._suppress_open = True
+        self.after(250, lambda: setattr(self, "_suppress_open", False))
+
+
 class VRCTTTSConnectorGUI(ctk.CTk):
     """VRCT-TTSアプリケーション"""
 
@@ -330,6 +447,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         pad = self.PAD
         gap = 8
 
+        # テーマ付きドロップダウン (ネイティブメニューではなく CTkToplevel) の配色
+        ThemedDropdown.set_palette(
+            bg=self.COL_BG, border=self.COL_BORDER_LIGHT,
+            hover="#4b4c4f", text=self.COL_TEXT,
+        )
+
         # ================= ルートレイアウト =================
         root = ctk.CTkFrame(self, fg_color="transparent")
         root.pack(fill="both", expand=True)
@@ -361,7 +484,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             text_color=self.COL_TEXT_MUTED,
         )
         version_label.pack(side="right", padx=(10, 0))
-        self.language_dropdown = ctk.CTkComboBox(
+        self.language_dropdown = ThemedDropdown(
             footer, variable=self.language_var, values=["English", "日本語"],
             width=118, height=28, command=self.on_language_change,
             **{k: v for k, v in self._combo_kw.items() if k != "height"},
@@ -416,7 +539,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             command=self.on_play_source_change, **self._check_kw,
         )
         self.play_source_checkbox.pack(side="left")
-        self.source_tts_engine_dropdown = ctk.CTkComboBox(
+        self.source_tts_engine_dropdown = ThemedDropdown(
             row_src, variable=self.source_tts_engine_var, values=["VOICEVOX", "gTTS"],
             width=132, command=self.on_source_tts_engine_change, **self._combo_kw,
         )
@@ -429,7 +552,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             command=self.on_play_dest_change, **self._check_kw,
         )
         self.play_dest_checkbox.pack(side="left")
-        self.dest_tts_engine_dropdown = ctk.CTkComboBox(
+        self.dest_tts_engine_dropdown = ThemedDropdown(
             row_dst, variable=self.dest_tts_engine_var, values=["gTTS", "VOICEVOX"],
             width=132, command=self.on_dest_tts_engine_change, **self._combo_kw,
         )
@@ -448,7 +571,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             text_color=self.COL_TEXT_MUTED, anchor="w",
         )
         self.char_label.pack(fill="x", pady=(0, 3))
-        self.character_dropdown = ctk.CTkComboBox(
+        self.character_dropdown = ThemedDropdown(
             voice_left, variable=self.character_var, values=["..."],
             command=self.on_character_change, **self._combo_kw,
         )
@@ -461,7 +584,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             text_color=self.COL_TEXT_MUTED, anchor="w",
         )
         self.style_label_left.pack(fill="x", pady=(0, 3))
-        self.style_dropdown = ctk.CTkComboBox(
+        self.style_dropdown = ThemedDropdown(
             voice_right, variable=self.style_var, values=["..."],
             command=self.on_style_change, **self._combo_kw,
         )
@@ -475,12 +598,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.device_label = self._sub_label(self.audio_card, t["output_device"], top=0)
         drow = ctk.CTkFrame(self.audio_card, fg_color="transparent")
         drow.pack(fill="x", padx=pad, pady=(0, 4))
-        self.host_dropdown = ctk.CTkComboBox(
+        self.host_dropdown = ThemedDropdown(
             drow, variable=self.host_var, values=["ホストを読み込み中..."],
             width=122, command=self.on_host_change, **self._combo_kw,
         )
         self.host_dropdown.pack(side="left", padx=(0, 6))
-        self.device_dropdown = ctk.CTkComboBox(
+        self.device_dropdown = ThemedDropdown(
             drow, variable=self.device_var, values=["デバイスを読み込み中..."],
             command=self.on_device_change, **self._combo_kw,
         )
@@ -490,12 +613,12 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.device_label_2 = self._sub_label(self._second_body, t["secondary_output_device"], top=6)
         drow2 = ctk.CTkFrame(self._second_body, fg_color="transparent")
         drow2.pack(fill="x", padx=pad, pady=(0, 4))
-        self.host_dropdown_2 = ctk.CTkComboBox(
+        self.host_dropdown_2 = ThemedDropdown(
             drow2, variable=self.host_var_2, values=["ホストを読み込み中..."],
             width=122, command=self.on_host_2_change, **self._combo_kw,
         )
         self.host_dropdown_2.pack(side="left", padx=(0, 6))
-        self.device_dropdown_2 = ctk.CTkComboBox(
+        self.device_dropdown_2 = ThemedDropdown(
             drow2, variable=self.device_var_2, values=["デバイスを読み込み中..."],
             command=self.on_device_2_change, **self._combo_kw,
         )
@@ -556,7 +679,7 @@ class VRCTTTSConnectorGUI(ctk.CTk):
             self._test_body, textvariable=self.test_text_var, **self._entry_kw)
         self.test_text_entry.pack(fill="x", padx=pad, pady=(2, 6))
         self.gtts_lang_label = self._sub_label(self._test_body, t["gtts_language_for_test"])
-        self.gtts_lang_dropdown = ctk.CTkComboBox(
+        self.gtts_lang_dropdown = ThemedDropdown(
             self._test_body, variable=self.gtts_lang_var,
             values=list(self.gtts_supported_languages.keys()),
             command=self.on_gtts_lang_change, **self._combo_kw,
