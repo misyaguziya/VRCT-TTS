@@ -5,6 +5,7 @@ texts = {
     "English": {
         "app_title": "VRCT-TTS",
         "websocket_server_url": "WebSocket Server URL",
+        "websocket_token": "WebSocket Token (optional)",
         "connect_websocket": "Connect WebSocket",
         "disconnect_websocket": "Disconnect WebSocket",
         "websocket_status_connected": "WebSocket: Connected",
@@ -44,6 +45,7 @@ texts = {
         "status_ws_disconnected": "Disconnected from WebSocket server.",
         "error_no_style_selected": "Error: No speaker style selected.",
         "status_ws_connecting": "Connecting to WebSocket server: ",
+        "error_ws_forbidden": "Connection refused (403). Check the WebSocket Token (copy it from VRCT's WebSocket settings).",
         "error_message_processing": "Message processing error: ",
         "status_received_message": "Received: ",
         "status_style_auto_selected": "Style auto-selected: ",
@@ -61,6 +63,7 @@ texts = {
     "日本語": {
         "app_title": "VRCT-TTS",
         "websocket_server_url": "WebSocketサーバーURL",
+        "websocket_token": "WebSocketトークン（任意）",
         "connect_websocket": "WebSocket接続開始",
         "disconnect_websocket": "WebSocket接続停止",
         "websocket_status_connected": "WebSocket: 接続済み",
@@ -100,6 +103,7 @@ texts = {
         "status_ws_disconnected": "WebSocket接続を終了しました",
         "error_no_style_selected": "エラー: スピーカースタイルが選択されていません",
         "status_ws_connecting": "WebSocketサーバーに接続中: ",
+        "error_ws_forbidden": "接続が拒否されました (403)。WebSocketトークンを確認してください（VRCTのWebSocket設定からコピーできます）。",
         "error_message_processing": "メッセージ処理エラー: ",
         "status_received_message": "受信: ",
         "status_style_auto_selected": "スタイルが自動選択されました: ",
