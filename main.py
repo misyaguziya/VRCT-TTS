@@ -217,6 +217,16 @@ class VRCTTTSConnectorGUI(ctk.CTk):
         self.geometry("560x824")
         self.minsize(width=480, height=560)
 
+        # ウィンドウ / タスクバーアイコン
+        self._icon_path = os.path.join(self.app_path, "img", "icon.ico")
+        if os.path.exists(self._icon_path):
+            try:
+                self.iconbitmap(self._icon_path)
+                # CustomTkinter は初期化中にアイコンを既定へ戻すため遅延で再適用
+                self.after(300, self._apply_icon)
+            except Exception:
+                pass
+
         # ダークモードをデフォルトに設定
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
@@ -294,6 +304,13 @@ class VRCTTTSConnectorGUI(ctk.CTk):
 
         # プロトコルハンドラー
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def _apply_icon(self) -> None:
+        """ウィンドウアイコンを (再) 適用する"""
+        try:
+            self.iconbitmap(self._icon_path)
+        except Exception:
+            pass
 
     def _create_gtts_lang_list(self) -> Dict[str, str]:
         """gTTSでサポートされている言語の辞書を作成する"""
